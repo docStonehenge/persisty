@@ -1,5 +1,6 @@
 require "persisty/version"
 
 module Persisty
-  # Your code goes here...
+  require 'persisty/databases/connection_properties_error'
+  require 'persisty/databases/uri_parser'
 end
