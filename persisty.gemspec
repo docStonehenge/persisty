@@ -34,4 +34,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_development_dependency "simplecov", "~> 0.15"
+
+  spec.add_runtime_dependency 'mongo', '~> 2.5', '>= 2.5.1'
+  spec.add_runtime_dependency 'dotenv', '~> 2.2', '>= 2.2.1'
 end
