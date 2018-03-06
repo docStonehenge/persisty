@@ -21,4 +21,6 @@ module Persisty
   require 'persisty/databases/uri_parser'
   require 'persisty/databases/mongo_db/aggregation_wrapper'
   require 'persisty/databases/mongo_db/client'
+
+  require 'persisty/persistence/entities/field'
 end
