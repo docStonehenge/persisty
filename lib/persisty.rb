@@ -37,4 +37,6 @@ module Persisty
   require 'persisty/repositories/entity_not_found_error'
   require 'persisty/repositories/invalid_entity_error'
   require 'persisty/repositories/base'
+
+  require 'persisty/document_manager'
 end
