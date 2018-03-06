@@ -22,5 +22,10 @@ module Persisty
   require 'persisty/databases/mongo_db/aggregation_wrapper'
   require 'persisty/databases/mongo_db/client'
 
+  require 'persisty/persistence/unit_of_work_not_started_error'
+  require 'persisty/persistence/unit_of_work'
+  require 'persisty/persistence/entities/registry'
   require 'persisty/persistence/entities/field'
+
+  require 'persisty/repositories/registry'
 end
