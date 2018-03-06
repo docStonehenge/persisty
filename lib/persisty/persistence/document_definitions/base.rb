@@ -142,8 +142,9 @@ module Persisty
           #   Entity.fields
           #   #=> {:id=>{:type=>BSON::ObjectId}, :first_name=>{:type=>String}
           #
-          #   Entity.new.first_name = "John Doe"
-          #   Entity.new.first_name
+          #   entity = Entity.new
+          #   entity.first_name = "John Doe"
+          #   entity.first_name
           #   #=> "John Doe"
           def define_field(name, type:)
             name = name.to_sym

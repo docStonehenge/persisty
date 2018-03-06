@@ -29,5 +29,12 @@ module Persisty
   require 'persisty/persistence/entities/comparison_error'
   require 'persisty/persistence/document_definitions/base'
 
+  require 'persisty/repositories/operation_error'
+  require 'persisty/repositories/insertion_error'
+  require 'persisty/repositories/update_error'
+  require 'persisty/repositories/delete_error'
   require 'persisty/repositories/registry'
+  require 'persisty/repositories/entity_not_found_error'
+  require 'persisty/repositories/invalid_entity_error'
+  require 'persisty/repositories/base'
 end
