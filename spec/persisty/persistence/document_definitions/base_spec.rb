@@ -21,8 +21,6 @@ module Persisty
           end
 
           context 'attributes' do
-            let(:field) { double(:field) }
-
             describe '.define_field name, type:' do
               context 'when field is ID' do
                 context 'when entity is handled by current UnitOfWork' do

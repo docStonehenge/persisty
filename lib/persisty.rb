@@ -15,6 +15,8 @@ module Persisty
   require 'persisty/extensions/big_decimal'
   require 'persisty/extensions/bson_object_id'
 
+  require 'persisty/string_pluralizer'
+
   require 'persisty/databases/connection_properties_error'
   require 'persisty/databases/operation_error'
   require 'persisty/databases/connection_error'
