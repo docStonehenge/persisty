@@ -10,7 +10,7 @@ module Persisty
       # Tries to pluralize word following English rules of pluralization. Any word
       # that doesn't match any specific rules are just modified with an appended 's'.
       # If word is already pluralized, it's not modified.
-      alias_method :pluralize, :modify
+      alias pluralize modify
 
       private
 

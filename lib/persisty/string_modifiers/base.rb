@@ -11,11 +11,21 @@ module Persisty
 
         return word_to_modify if word.empty?
 
-        if (key = rules.keys.find { |rule| rule.match(word) })
-          word_to_modify.sub!(/#{Regexp.new(key.to_s)}/, rules.fetch(key))
+        if (key = rule_key_for(word, rules))
+          change_word_based_on rules, key, word_to_modify
         end
 
         word_to_modify
+      end
+
+      private
+
+      def rule_key_for(word, rules)
+        rules.keys.find { |rule| rule.match(word) }
+      end
+
+      def change_word_based_on(rules, rule_key, new_word)
+        new_word.sub!(rule_key, rules.fetch(rule_key))
       end
     end
   end

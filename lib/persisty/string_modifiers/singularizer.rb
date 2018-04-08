@@ -3,7 +3,7 @@ require 'persisty/string_modifiers/base'
 module Persisty
   module StringModifiers
     class Singularizer < Base
-      alias_method :singularize, :modify
+      alias singularize modify
 
       private
 

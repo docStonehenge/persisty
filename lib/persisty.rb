@@ -17,6 +17,7 @@ module Persisty
 
   require 'persisty/string_modifiers/pluralizer'
   require 'persisty/string_modifiers/singularizer'
+  require 'persisty/string_modifiers/camelizer'
 
   require 'persisty/databases/connection_properties_error'
   require 'persisty/databases/operation_error'
