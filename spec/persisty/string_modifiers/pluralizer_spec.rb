@@ -65,8 +65,8 @@ module Persisty
             expect(subject.pluralize('people')).to eql 'people'
             expect(subject.pluralize('zombies')).to eql 'zombies'
             expect(subject.pluralize('children')).to eql 'children'
-            expect(subject.pluralize('PEOPLE')).to eql 'PEOPLE'
-            expect(subject.pluralize('ZOMBIES')).to eql 'ZOMBIEs'
+            expect(subject.pluralize('PEOPLE')).to eql 'People'
+            expect(subject.pluralize('ZOMBIES')).to eql 'ZOMBIES'
             expect(subject.pluralize('CHILDREN')).to eql 'CHILDREN'
           end
         end
@@ -158,6 +158,19 @@ module Persisty
             expect(subject.pluralize('PERSON')).to eql 'People'
             expect(subject.pluralize('ZOMBIE')).to eql 'ZOMBIEs'
             expect(subject.pluralize('CHILD')).to eql 'CHILDren'
+          end
+        end
+
+        context 'when word has regular plural' do
+          it 'returns correct pluralization for each case' do
+            expect(subject.pluralize('test')).to eql 'tests'
+            expect(subject.pluralize('employee')).to eql 'employees'
+            expect(subject.pluralize('skill')).to eql 'skills'
+            expect(subject.pluralize('paper')).to eql 'papers'
+            expect(subject.pluralize('TEST')).to eql 'TESTs'
+            expect(subject.pluralize('EMPLOYEE')).to eql 'EMPLOYEEs'
+            expect(subject.pluralize('SKILL')).to eql 'SKILLs'
+            expect(subject.pluralize('PAPER')).to eql 'PAPERs'
           end
         end
       end

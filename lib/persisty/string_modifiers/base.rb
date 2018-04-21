@@ -21,7 +21,7 @@ module Persisty
       private
 
       def rule_key_for(word, rules)
-        rules.keys.find { |rule| rule.match(word) }
+        rules.keys.select { |rule| rule.match(word) }.last
       end
 
       def change_word_based_on(rules, rule_key, new_word)

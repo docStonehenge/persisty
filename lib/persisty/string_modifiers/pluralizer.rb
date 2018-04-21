@@ -17,13 +17,15 @@ module Persisty
       def define_modification_rules
         {
           default: {
-            /(p)erson/i => '\1eople', /(child)$/i => '\1ren', /(zombie)$/i => '\1s',
-            /(?!<[^aeiou]{1}>)y$/i => 'ies', /(epo|stoma)ch$/i => '\\0s',
-            /(ss|x|ch|sh|z)$/i => '\1es', /(bu)s$/i => '\\0es',
-            /\w*[aeiou]ch$/i => '\\0s',
+            /$/i => 's', /s$/i => 's', /(?!<[^aeiou]{1}>)y$/i => 'ies',
+            /(epo|stoma)ch$/i => '\\0s', /(ss|x|ch|sh|z)$/i => '\1es',
+            /(bu)s$/i => '\\0es', /\w*[aeiou]ch$/i => '\\0s',
             /(?!<[aeiou]{1}>)fe$|(?<![aeiou])f$/i => '\1ves',
-            /(?<![^aeiou]{1})f$/i => '\\0s', /(tomat|potat|her)o$/i => '\\0es',
-            /\w*o$/i => '\\0s', /s$/i => 's'
+            /(?<![^aeiou]{1})f$/i => '\\0s', /\w*o$/i => '\\0s',
+            /(tomat|potat|her)o$/i => '\\0es', /(p)erson$/i => '\1eople',
+            /(p)eople/i => '\1eople', /(child)$/i => '\1ren',
+            /(children)$/i => '\1', /(zombie)$/i => '\1s',
+            /(zombies)$/i => '\1'
           }
         }
       end
