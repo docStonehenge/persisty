@@ -110,6 +110,34 @@ module Persisty
             expect(subject.to_mongo_document).to include entity_document
           end
         end
+
+        describe '#size' do
+          it 'calls repository to load collection and returns collection size' do
+            expect(
+              DocumentManager
+            ).to receive(:new).once.and_return document_manager
+
+            expect(document_manager).to receive(:find_all).once.with(
+                                          StubEntity, filter: { string_id: model.id }
+                                        ).and_return [entity]
+
+            expect(subject.size).to eql 1
+          end
+        end
+
+        describe '#count' do
+          it 'calls repository to load collection and returns collection count' do
+            expect(
+              DocumentManager
+            ).to receive(:new).once.and_return document_manager
+
+            expect(document_manager).to receive(:find_all).once.with(
+                                          StubEntity, filter: { string_id: model.id }
+                                        ).and_return [entity]
+
+            expect(subject.count).to eql 1
+          end
+        end
       end
 
       context "when collection isn't nil" do
@@ -178,6 +206,20 @@ module Persisty
           it 'transforms each object to mongo_document' do
             expect(DocumentManager).not_to receive(:new)
             expect(subject.to_mongo_document).to include entity_document
+          end
+        end
+
+        describe '#size' do
+          it 'returns collection size' do
+            expect(DocumentManager).not_to receive(:new)
+            expect(subject.size).to eql 1
+          end
+        end
+
+        describe '#count' do
+          it 'returns collection count' do
+            expect(DocumentManager).not_to receive(:new)
+            expect(subject.count).to eql 1
           end
         end
       end

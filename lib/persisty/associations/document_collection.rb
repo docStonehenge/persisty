@@ -17,6 +17,13 @@ module Persisty
         all.map(&:to_mongo_document)
       end
 
+      def size
+        load_collection
+        @collection.size
+      end
+
+      alias count size
+
       def all
         load_collection
         @collection
