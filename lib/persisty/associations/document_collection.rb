@@ -1,10 +1,10 @@
 module Persisty
   module Associations
     class DocumentCollection
-      def initialize(parent, collection, document_class)
+      def initialize(parent, document_class, collection = nil)
         @parent         = parent
-        @collection     = collection
         @document_class = document_class
+        @collection     = collection
       end
 
       def all
@@ -35,10 +35,10 @@ module Persisty
       private
 
       def load_collection
-        return unless @collection.empty?
+        return unless @collection.nil?
 
-        @collection = Repositories::Registry[@document_class].find_all(
-          filter: { foreign_key => @parent.id }
+        @collection = DocumentManager.new.find_all(
+          @document_class, filter: { foreign_key => @parent.id }
         )
       end
 
