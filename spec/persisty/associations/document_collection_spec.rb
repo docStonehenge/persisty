@@ -9,6 +9,20 @@ module Persisty
       context 'when collection is nil' do
         subject { described_class.new(model, StubEntity) }
 
+        describe '#reload' do
+          it 'clears collection variable, loads collection and returns subject' do
+            expect(
+              DocumentManager
+            ).to receive(:new).once.and_return document_manager
+
+            expect(document_manager).to receive(:find_all).once.with(
+                                          StubEntity, filter: { string_id: model.id }
+                                        ).and_return [entity]
+
+            expect(subject.reload).to eql subject
+          end
+        end
+
         describe '#all' do
           it 'calls repository to load collection and returns all objects found' do
             expect(
@@ -80,10 +94,40 @@ module Persisty
             expect(subject.last).to eql last_entity
           end
         end
+
+        describe '#to_mongo_document' do
+          let(:entity_document) { entity.to_mongo_document }
+
+          it 'calls repository to load collection and transforms each object to mongo_document' do
+            expect(
+              DocumentManager
+            ).to receive(:new).once.and_return document_manager
+
+            expect(document_manager).to receive(:find_all).once.with(
+                                          StubEntity, filter: { string_id: model.id }
+                                        ).and_return [entity]
+
+            expect(subject.to_mongo_document).to include entity_document
+          end
+        end
       end
 
       context "when collection isn't nil" do
         subject { described_class.new(model, StubEntity, [entity]) }
+
+        describe '#reload' do
+          it 'clears collection variable, loads collection and returns subject' do
+            expect(
+              DocumentManager
+            ).to receive(:new).once.and_return document_manager
+
+            expect(document_manager).to receive(:find_all).once.with(
+                                          StubEntity, filter: { string_id: model.id }
+                                        ).and_return [entity]
+
+            expect(subject.reload).to eql subject
+          end
+        end
 
         describe '#all' do
           it 'returns collection without trying to load objects' do
@@ -125,6 +169,15 @@ module Persisty
           it 'returns last object on collection' do
             expect(DocumentManager).not_to receive(:new)
             expect(subject.last).to eql last_entity
+          end
+        end
+
+        describe '#to_mongo_document' do
+          let(:entity_document) { entity.to_mongo_document }
+
+          it 'transforms each object to mongo_document' do
+            expect(DocumentManager).not_to receive(:new)
+            expect(subject.to_mongo_document).to include entity_document
           end
         end
       end

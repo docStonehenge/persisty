@@ -7,6 +7,16 @@ module Persisty
         @collection     = collection
       end
 
+      def reload
+        @collection = nil
+        load_collection
+        self
+      end
+
+      def to_mongo_document
+        all.map(&:to_mongo_document)
+      end
+
       def all
         load_collection
         @collection
