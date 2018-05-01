@@ -34,6 +34,8 @@ module Persisty
   require 'persisty/persistence/entities/comparison_error'
   require 'persisty/persistence/document_definitions/base'
 
+  require 'persisty/associations/document_collection'
+
   require 'persisty/repositories/operation_error'
   require 'persisty/repositories/insertion_error'
   require 'persisty/repositories/update_error'
