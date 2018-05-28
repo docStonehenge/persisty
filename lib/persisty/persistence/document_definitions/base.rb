@@ -13,15 +13,18 @@ module Persisty
           base.class_eval do
             extend(ClassMethods)
 
-            @fields_list = [] # Collection of attributes set on entity, as symbols.
-            @fields      = {} # Contains specifications of field names and types.
+            @fields_list       = [] # Collection of attributes set on entity, as symbols.
+            @fields            = {} # Contains specifications of field names and types.
+            @parent_nodes_list = []
+            @parent_nodes_map  = {}
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
             alias_method(:_id=, :id=)
 
             class << self
-              attr_reader :fields_list, :fields
+              attr_reader :fields_list, :fields,
+                          :parent_nodes_list, :parent_nodes_map
             end
           end
         end
@@ -117,6 +120,43 @@ module Persisty
           # Raises an NotImplementedError.
           def repository
             raise NotImplementedError
+          end
+
+          def parent_node(name, class_name: nil)
+            parent_name  = StringModifiers::Underscorer.new.underscore(name.to_s)
+            parent_klass = Object.const_get(
+              StringModifiers::Camelizer.new.camelize(parent_name)
+            )
+
+            @parent_nodes_list.push(parent_name.to_sym)
+            @parent_nodes_map[parent_name.to_sym] = { type: parent_klass }
+
+            foreign_key_field = (parent_name + '_id').to_sym
+            define_field foreign_key_field, type: BSON::ObjectId
+
+            instance_eval do
+              define_method("#{parent_name}=") do |parent_object|
+                unless parent_object.nil? or parent_object.is_a? parent_klass
+                  raise TypeError, "Object is a type mismatch from defined parent_scope '#{parent_name}'"
+                end
+
+                instance_variable_set("@#{parent_name}", parent_object)
+                instance_variable_set("@#{foreign_key_field}", parent_object&.id)
+              end
+
+              define_method("#{parent_name}") do
+                if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{parent_name}").nil?
+                  parent = DocumentManager.new.find(
+                    parent_klass, instance_variable_get("@#{foreign_key_field}")
+                  )
+
+                  instance_variable_set("@#{parent_name}", parent)
+                  instance_variable_set("@#{foreign_key_field}", parent.id)
+                end
+
+                instance_variable_get("@#{parent_name}")
+              end
+            end
           end
 
           # Defines accessors methods for field <tt>name</tt>, considering <tt>type</tt> to use
