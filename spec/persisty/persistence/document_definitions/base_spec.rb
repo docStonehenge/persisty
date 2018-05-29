@@ -108,6 +108,151 @@ module Persisty
                     ).to be true
                   }.to change(@subject, :stub_entity_id).from(entity.id).to(nil)
                 end
+
+                it 'clears parent scope field when foreign key passed is nil' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :stub_entity
+                  @subject.stub_entity = entity
+
+                  @subject.stub_entity_id = nil
+
+                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                end
+
+                it "doesn't clear parent scope field when foreign key passed is same" do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :stub_entity
+
+                  @subject.stub_entity = entity
+
+                  @subject.stub_entity_id = entity.id
+                  expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+                end
+
+                it 'clears parent scope field when foreign key passed is different' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :stub_entity
+
+                  @subject.stub_entity = entity
+
+                  @subject.stub_entity_id = BSON::ObjectId.new
+                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                end
+              end
+
+              context 'when class_name argument is used' do
+                it 'sets parent_node field for its ID and field to lazy load parent' do
+                  described_class.parent_node :foo, class_name: String
+
+                  expect(described_class.parent_nodes_list).to include(:foo)
+                  expect(described_class.parent_nodes_map).to include(foo: { type: String })
+
+                  expect(described_class.fields_list).to include(:foo_id)
+                  expect(described_class.fields).to include(foo_id: { type: BSON::ObjectId })
+
+                  expect(@subject).to respond_to :foo_id
+                  expect(@subject).to respond_to(:foo_id=)
+                  expect(@subject).to respond_to :foo
+                  expect(@subject).to respond_to(:foo=)
+                end
+
+                it 'raises TypeError with custom message on setter when object is a type mismatch' do
+                  described_class.parent_node :foo, class_name: String
+
+                  expect {
+                    @subject.foo = Object.new
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined parent_scope 'foo'")
+                end
+
+                it 'performs lazy load on parent_node getter finding by foreign_key on repository' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+
+                  described_class.parent_node :foo, class_name: 'StubEntity'
+
+                  @subject.foo_id = entity.id
+                  expect(@subject.instance_variable_get(:@foo)).to be_nil
+
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+
+                  expect(
+                    document_manager
+                  ).to receive(:find).once.with(StubEntity, entity.id).and_return entity
+
+                  expect(@subject.foo).to eql entity
+                  expect(@subject.instance_variable_get(:@foo)).to eql entity
+                end
+
+                it 'sets foreign_key id on foreign_key field from object passed as parent_node on setter' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :foo, class_name: 'StubEntity'
+
+                  expect {
+                    @subject.foo = entity
+
+                    expect(@subject.foo).to eql entity
+
+                    expect(
+                      Persistence::UnitOfWork.current.managed?(@subject)
+                    ).to be true
+                  }.to change(@subject, :foo_id).from(nil).to(entity.id)
+                end
+
+                it 'clears foreign key field when entity passed on setter is nil' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :foo, class_name: StubEntity
+
+                  @subject.foo = entity
+
+                  expect {
+                    @subject.foo = nil
+
+                    expect(DocumentManager).not_to receive(:new)
+                    expect(@subject.foo).to be_nil
+
+                    expect(
+                      Persistence::UnitOfWork.current.managed?(@subject)
+                    ).to be true
+                  }.to change(@subject, :foo_id).from(entity.id).to(nil)
+                end
+
+                it 'clears parent scope field when foreign key passed is nil' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :foo, class_name: StubEntity
+                  @subject.foo = entity
+
+                  @subject.foo_id = nil
+
+                  expect(@subject.instance_variable_get(:@foo)).to be_nil
+                end
+
+                it "doesn't clear parent scope field when foreign key passed is same" do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :foo, class_name: StubEntity
+
+                  @subject.foo = entity
+
+                  @subject.foo_id = entity.id
+                  expect(@subject.instance_variable_get(:@foo)).to eql entity
+                end
+
+                it 'clears parent scope field when foreign key passed is different' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+                  described_class.parent_node :foo, class_name: 'StubEntity'
+
+                  @subject.foo = entity
+
+                  @subject.foo_id = BSON::ObjectId.new
+                  expect(@subject.instance_variable_get(:@foo)).to be_nil
+                end
               end
             end
           end

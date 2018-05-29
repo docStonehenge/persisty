@@ -124,39 +124,18 @@ module Persisty
 
           def parent_node(name, class_name: nil)
             parent_name  = StringModifiers::Underscorer.new.underscore(name.to_s)
-            parent_klass = Object.const_get(
-              StringModifiers::Camelizer.new.camelize(parent_name)
-            )
+            parent_klass = parent_node_class(parent_name, class_name)
 
             @parent_nodes_list.push(parent_name.to_sym)
             @parent_nodes_map[parent_name.to_sym] = { type: parent_klass }
 
             foreign_key_field = (parent_name + '_id').to_sym
-            define_field foreign_key_field, type: BSON::ObjectId
+            register_defined_field foreign_key_field, BSON::ObjectId
+            attr_reader foreign_key_field
 
-            instance_eval do
-              define_method("#{parent_name}=") do |parent_object|
-                unless parent_object.nil? or parent_object.is_a? parent_klass
-                  raise TypeError, "Object is a type mismatch from defined parent_scope '#{parent_name}'"
-                end
-
-                instance_variable_set("@#{parent_name}", parent_object)
-                instance_variable_set("@#{foreign_key_field}", parent_object&.id)
-              end
-
-              define_method("#{parent_name}") do
-                if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{parent_name}").nil?
-                  parent = DocumentManager.new.find(
-                    parent_klass, instance_variable_get("@#{foreign_key_field}")
-                  )
-
-                  instance_variable_set("@#{parent_name}", parent)
-                  instance_variable_set("@#{foreign_key_field}", parent.id)
-                end
-
-                instance_variable_get("@#{parent_name}")
-              end
-            end
+            define_parent_scope_handling_methods(
+              parent_name, parent_klass, foreign_key_field
+            )
           end
 
           # Defines accessors methods for field <tt>name</tt>, considering <tt>type</tt> to use
@@ -188,15 +167,17 @@ module Persisty
           #   #=> "John Doe"
           def define_field(name, type:)
             name = name.to_sym
-
-            @fields_list.push(name)
-            @fields[name] = { type: type }
-
+            register_defined_field name, type
             attr_reader name
             define_setter_method_for name, type
           end
 
           private
+
+          def register_defined_field(name, type)
+            @fields_list.push(name)
+            @fields[name] = { type: type }
+          end
 
           def define_setter_method_for(attribute, type) # :nodoc:
             instance_eval do
@@ -205,6 +186,62 @@ module Persisty
                 handle_registration_for_changes_on attribute, new_value
                 instance_variable_set(:"@#{attribute}", new_value)
               end
+            end
+          end
+
+          def parent_node_class(parent_node_name, class_name)
+            return Object.const_get(class_name.to_s) if class_name
+
+            Object.const_get(
+              StringModifiers::Camelizer.new.camelize(parent_node_name)
+            )
+          end
+
+          def define_parent_scope_handling_methods(parent_scope_name, parent_scope_klass, foreign_key_field)
+            instance_eval do
+              define_method("#{foreign_key_field}=") do |value|
+                new_value = Entities::Field.new(type: BSON::ObjectId, value: value).coerce
+                handle_registration_for_changes_on foreign_key_field, new_value
+                instance_variable_set(:"@#{foreign_key_field}", new_value)
+
+                unless instance_variable_get(:"@#{parent_scope_name}")&.id == new_value
+                  instance_variable_set(:"@#{parent_scope_name}", nil)
+                end
+              end
+
+              define_parent_scope_setter(
+                parent_scope_name, parent_scope_klass, foreign_key_field
+              )
+
+              define_parent_scope_getter(
+                parent_scope_name, parent_scope_klass, foreign_key_field
+              )
+            end
+          end
+
+          def define_parent_scope_setter(name, parent_scope_klass, foreign_key_field)
+            define_method("#{name}=") do |parent_object|
+              unless parent_object.nil? or parent_object.is_a? parent_scope_klass
+                raise TypeError, "Object is a type mismatch from defined parent_scope '#{name}'"
+              end
+
+              instance_variable_set("@#{name}", parent_object)
+              instance_variable_set("@#{foreign_key_field}", parent_object&.id)
+            end
+          end
+
+          def define_parent_scope_getter(name, parent_scope_klass, foreign_key_field)
+            define_method("#{name}") do
+              if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{name}").nil?
+                parent = DocumentManager.new.find(
+                  parent_scope_klass, instance_variable_get("@#{foreign_key_field}")
+                )
+
+                instance_variable_set("@#{name}", parent)
+                instance_variable_set("@#{foreign_key_field}", parent.id)
+              end
+
+              instance_variable_get("@#{name}")
             end
           end
         end
