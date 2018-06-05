@@ -63,14 +63,8 @@ module Persisty
 
           attributes[:id] = attributes[:_id] || attributes[:id]
 
-          self.class.fields.each do |name, spec|
-            instance_variable_set(
-              :"@#{name}",
-              Entities::Field.new(
-                type: spec.dig(:type), value: attributes.dig(name)
-              ).coerce
-            )
-          end
+          initialize_fields_with attributes
+          initialize_parent_nodes_based_on attributes
         end
 
         # Enables comparison with another entity object, using Comparable built-in behavior.
@@ -85,11 +79,13 @@ module Persisty
         end
 
         # Returns a Hash of all fields from entity, mapping keys as Symbols of field names
-        # and their respective values.
+        # and their respective values, without including any relations.
         # <tt>include_id_field</tt> argument indicates if the Hash returned must
         # map the +id+ field or not.
         def to_hash(include_id_field: true)
           variables = instance_variables
+          parent_nodes_list.each { |node| variables.delete(:"@#{node}") }
+
           variables.delete(:@id) unless include_id_field
 
           {}.tap do |attrs|
@@ -112,6 +108,14 @@ module Persisty
           end
 
           document.to_mongo_value
+        end
+
+        def fields
+          self.class.fields
+        end
+
+        def parent_nodes_list
+          self.class.parent_nodes_list
         end
 
         module ClassMethods
@@ -247,6 +251,23 @@ module Persisty
         end
 
         private
+
+        def initialize_fields_with(attributes)
+          fields.each do |name, spec|
+            instance_variable_set(
+              :"@#{name}",
+              Entities::Field.new(
+                type: spec.dig(:type), value: attributes.dig(name)
+              ).coerce
+            )
+          end
+        end
+
+        def initialize_parent_nodes_based_on(attributes)
+          attributes.select do |attr|
+            parent_nodes_list.include?(attr)
+          end.each { |node, value| public_send("#{node}=", value) }
+        end
 
         def handle_registration_for_changes_on(attribute, value) # :nodoc:
           if attribute == :id and !Persistence::UnitOfWork.current.detached? self

@@ -390,11 +390,30 @@ module Persisty
           class TestEntity
             include Base
 
+            parent_node :stub_entity
+
             define_field :first_name, type: String
             define_field :dob,        type: Date
           end
 
           let(:described_class) { TestEntity }
+
+          describe '#fields' do
+            it 'returns list of fields set on object class' do
+              expect(subject.fields).to eql(
+                                          id: { type: BSON::ObjectId },
+                                          first_name: { type: String },
+                                          dob: { type: Date },
+                                          stub_entity_id: { type: BSON::ObjectId }
+                                        )
+            end
+          end
+
+          describe '#parent_nodes_list' do
+            it 'returns list of parent_nodes set on object class' do
+              expect(subject.parent_nodes_list).to eql [:stub_entity]
+            end
+          end
 
           context 'can be initialized with any atributes' do
             it 'can be initialized without any attributes' do
@@ -403,6 +422,8 @@ module Persisty
               expect(subject.id).to be_nil
               expect(subject.first_name).to be_nil
               expect(subject.dob).to be_nil
+              expect(subject.stub_entity_id).to be_nil
+              expect(subject.stub_entity).to be_nil
             end
 
             context 'with symbol keys' do
@@ -444,6 +465,44 @@ module Persisty
                 expect(subject.first_name).to eql 'John'
                 expect(subject.dob).to eql Date.parse('27/10/1990')
               end
+
+              it 'initializes with parent node id' do
+                entity.id = BSON::ObjectId.new
+
+                subject = described_class.new(
+                  id: id, first_name: 'John',
+                  dob: Date.parse('27/10/1990'), stub_entity_id: entity.id
+                )
+
+                expect(subject.id).to eql id
+                expect(subject.first_name).to eql 'John'
+                expect(subject.dob).to eql Date.parse('27/10/1990')
+                expect(subject.stub_entity_id).to eql entity.id
+              end
+
+              it 'initializes with parent node object' do
+                entity.id = BSON::ObjectId.new
+
+                subject = described_class.new(
+                  id: id, first_name: 'John',
+                  dob: Date.parse('27/10/1990'), stub_entity: entity
+                )
+
+                expect(subject.id).to eql id
+                expect(subject.first_name).to eql 'John'
+                expect(subject.dob).to eql Date.parse('27/10/1990')
+                expect(subject.stub_entity).to eql entity
+                expect(subject.stub_entity_id).to eql entity.id
+              end
+
+              it 'raises error on initialization when parent node object is of wrong type' do
+                expect {
+                  described_class.new(
+                    id: id, first_name: 'John',
+                    dob: Date.parse('27/10/1990'), stub_entity: String.new
+                  )
+                }.to raise_error(TypeError, "Object is a type mismatch from defined parent_scope 'stub_entity'")
+              end
             end
 
             context 'with string keys' do
@@ -484,6 +543,44 @@ module Persisty
                 expect(subject.id).to eql another_id
                 expect(subject.first_name).to eql 'John'
                 expect(subject.dob).to eql Date.parse('27/10/1990')
+              end
+
+              it 'initializes with parent node id' do
+                entity.id = BSON::ObjectId.new
+
+                subject = described_class.new(
+                  'id' => id, 'first_name' => 'John',
+                  'dob' => Date.parse('27/10/1990'), 'stub_entity_id' => entity.id
+                )
+
+                expect(subject.id).to eql id
+                expect(subject.first_name).to eql 'John'
+                expect(subject.dob).to eql Date.parse('27/10/1990')
+                expect(subject.stub_entity_id).to eql entity.id
+              end
+
+              it 'initializes with parent node object' do
+                entity.id = BSON::ObjectId.new
+
+                subject = described_class.new(
+                  'id' => id, 'first_name' => 'John',
+                  'dob' => Date.parse('27/10/1990'), 'stub_entity' => entity
+                )
+
+                expect(subject.id).to eql id
+                expect(subject.first_name).to eql 'John'
+                expect(subject.dob).to eql Date.parse('27/10/1990')
+                expect(subject.stub_entity).to eql entity
+                expect(subject.stub_entity_id).to eql entity.id
+              end
+
+              it 'raises error on initialization when parent node object is of wrong type' do
+                expect {
+                  described_class.new(
+                    'id' => id, 'first_name' => 'John',
+                    'dob' => Date.parse('27/10/1990'), 'stub_entity' => String.new
+                  )
+                }.to raise_error(TypeError, "Object is a type mismatch from defined parent_scope 'stub_entity'")
               end
             end
           end
@@ -593,19 +690,35 @@ module Persisty
           describe '#to_hash include_id_field: true' do
             subject { described_class.new(id: id, first_name: 'John', dob: Date.parse('1990/01/01')) }
 
+            before do
+              entity.id = BSON::ObjectId.new
+              described_class.parent_node :entity, class_name: entity.class
+              subject.entity = entity
+            end
+
             context 'when ID field is included' do
-              it 'returns fields names and values mapped into a Hash' do
-                expect(
-                  subject.to_hash
-                ).to eql(id: id, first_name: 'John', dob: Date.parse('1990/01/01'))
+              it 'returns fields names and values mapped into a Hash, without relations' do
+                result = subject.to_hash
+
+                expect(result).to include(
+                                    id: id, first_name: 'John',
+                                    dob: Date.parse('1990/01/01'), entity_id: entity.id
+                                  )
+
+                expect(result).not_to have_key(:entity)
               end
             end
 
             context 'when ID field is not included' do
-              it 'returns fields names and values mapped into a Hash, without ID' do
-                expect(
-                  subject.to_hash(include_id_field: false)
-                ).to eql(first_name: 'John', dob: Date.parse('1990/01/01'))
+              it 'returns fields names and values mapped into a Hash, without relations and ID' do
+                result = subject.to_hash(include_id_field: false)
+
+                expect(result).to include(
+                                    first_name: 'John', dob: Date.parse('1990/01/01'),
+                                    entity_id: entity.id
+                                  )
+
+                expect(result).not_to have_key(:entity)
               end
             end
           end
@@ -613,6 +726,8 @@ module Persisty
           describe '#to_mongo_document' do
             class EntityWithAllValues
               include Base
+
+              parent_node :test_scope, class_name: ::StubEntity
 
               define_field :field1, type: String
               define_field :field2, type: Integer
@@ -644,6 +759,11 @@ module Persisty
               )
             end
 
+            before do
+              entity.id = BSON::ObjectId.new
+              subject.test_scope = entity
+            end
+
             it "maps fields names and values, with mongo permitted values and '_id' field" do
               expect(
                 subject.to_mongo_document
@@ -659,7 +779,8 @@ module Persisty
                      field8: id,
                      field9: Date.parse('01/01/1990'),
                      field10: DateTime.new(2017, 11, 21),
-                     field11: Time.new(2017, 11, 21)
+                     field11: Time.new(2017, 11, 21),
+                     test_scope_id: entity.id
                    )
             end
 
@@ -677,7 +798,8 @@ module Persisty
                      field8: id,
                      field9: Date.parse('01/01/1990'),
                      field10: DateTime.new(2017, 11, 21),
-                     field11: Time.new(2017, 11, 21)
+                     field11: Time.new(2017, 11, 21),
+                     test_scope_id: entity.id
                    )
             end
           end
