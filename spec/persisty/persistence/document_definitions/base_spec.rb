@@ -6,6 +6,7 @@ module Persisty
 
         let(:uow) { double(:uow) }
         let!(:id) { BSON::ObjectId.new }
+        let(:document_manager) { double(:document_manager) }
 
         describe 'ClassMethods' do
           let(:described_class) { Class.new { include Base } }
@@ -23,9 +24,143 @@ module Persisty
           end
 
           context 'associations' do
-            describe '.parent_node name, class_name:' do
-              let(:document_manager) { double(:document_manager) }
+            describe '.child_node name, class_name:' do
+              before do
+                @subject = described_class.new(id: BSON::ObjectId.new)
+              end
 
+              context 'when class_name is nil' do
+                it 'sets child node field to lazy load object' do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(class: described_class)
+
+                  described_class.child_node :stub_entity
+
+                  expect(described_class.child_nodes_list).to include(:stub_entity)
+                  expect(described_class.child_nodes_map).to include(stub_entity: ::StubEntity)
+                  expect(@subject).to respond_to :stub_entity
+                  expect(@subject).to respond_to(:stub_entity=)
+                end
+
+                it "raises ArgumentError when child node class doesn't have parent foreign keys field" do
+                  allow(StubEntity).to receive(:parent_nodes_map).and_return({})
+
+                  expect {
+                    described_class.child_node :stub_entity
+                  }.to raise_error(
+                         ArgumentError,
+                         "Child node class must have a foreign_key field set for parent. "\
+                         "Use '.parent_node' method on child class to set correct parent_node relation."
+                       )
+                end
+
+                it 'performs lazy load on child node getter finding by parent id' do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(class: described_class)
+
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+
+                  expect(
+                    document_manager
+                  ).to receive(:find_all).once.with(
+                         StubEntity, filter: { class_id: @subject.id }
+                       ).and_return [entity]
+
+                  expect(@subject.stub_entity).to eql entity
+                  expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+                end
+
+                it 'resolves parent id at child on child node setter' do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(class: described_class)
+
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(entity).to receive(:class_id=).once.with(@subject.id)
+
+                  @subject.stub_entity = entity
+                end
+              end
+
+              context 'when class_name is present' do
+                it 'sets child node field to lazy load object based on class_name' do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(parent_name: described_class)
+
+                  described_class.child_node :foo, class_name: ::StubEntity
+
+                  subject = described_class.new(id: BSON::ObjectId.new)
+
+                  expect(described_class.child_nodes_list).to include(:foo)
+                  expect(described_class.child_nodes_map).to include(foo: ::StubEntity)
+                  expect(subject).to respond_to :foo
+                  expect(subject).to respond_to(:foo=)
+                end
+
+                it "raises ArgumentError when child node class doesn't have parent foreign keys field" do
+                  allow(StubEntity).to receive(:parent_nodes_map).and_return({})
+
+                  expect {
+                    described_class.child_node :foo, class_name: ::StubEntity
+                  }.to raise_error(
+                         ArgumentError,
+                         "Child node class must have a foreign_key field set for parent. "\
+                         "Use '.parent_node' method on child class to set correct parent_node relation."
+                       )
+                end
+
+                it 'performs lazy load on child node getter finding by parent id' do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(parent_name: described_class)
+
+                  described_class.child_node :foo, class_name: ::StubEntity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(@subject.instance_variable_get(:@foo)).to be_nil
+
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+
+                  expect(
+                    document_manager
+                  ).to receive(:find_all).once.with(
+                         StubEntity, filter: { parent_name_id: @subject.id }
+                       ).and_return [entity]
+
+                  expect(@subject.foo).to eql entity
+                  expect(@subject.instance_variable_get(:@foo)).to eql entity
+                end
+
+                it 'resolves parent id at child on child node setter' do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(parent_name: described_class)
+
+                  described_class.child_node :foo, class_name: 'StubEntity'
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(entity).to receive(:parent_name_id=).once.with(@subject.id)
+
+                  @subject.foo = entity
+                end
+              end
+            end
+
+            describe '.parent_node name, class_name:' do
               before do
                 @subject = described_class.new(id: BSON::ObjectId.new)
                 Persistence::UnitOfWork.new_current

@@ -17,6 +17,8 @@ module Persisty
             @fields            = {} # Contains specifications of field names and types.
             @parent_nodes_list = []
             @parent_nodes_map  = {}
+            @child_nodes_list  = []
+            @child_nodes_map   = {}
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
@@ -24,7 +26,8 @@ module Persisty
 
             class << self
               attr_reader :fields_list, :fields,
-                          :parent_nodes_list, :parent_nodes_map
+                          :parent_nodes_list, :parent_nodes_map,
+                          :child_nodes_list, :child_nodes_map
             end
           end
         end
@@ -126,9 +129,32 @@ module Persisty
             raise NotImplementedError
           end
 
+          def child_node(name, class_name: nil)
+            child, child_klass = normalize_node_identification(name, class_name)
+
+            @child_nodes_list.push(child.to_sym)
+            @child_nodes_map[child.to_sym] = child_klass
+
+            child_set_parent_node = parent_node_on(child_klass)
+
+            instance_eval do
+              define_method("#{child}") do
+                child_obj = DocumentManager.new.find_all(
+                  child_klass, filter: { :"#{child_set_parent_node}_id" => id }
+                ).first
+
+                instance_variable_set("@#{child}", child_obj)
+              end
+
+              define_method("#{child}=") do |child_obj|
+                child_obj.public_send("#{child_set_parent_node}_id=", id)
+                instance_variable_set("@#{child}", child_obj)
+              end
+            end
+          end
+
           def parent_node(name, class_name: nil)
-            parent_name  = StringModifiers::Underscorer.new.underscore(name.to_s)
-            parent_klass = parent_node_class(parent_name, class_name)
+            parent_name, parent_klass = normalize_node_identification(name, class_name)
 
             @parent_nodes_list.push(parent_name.to_sym)
             @parent_nodes_map[parent_name.to_sym] = { type: parent_klass }
@@ -178,6 +204,28 @@ module Persisty
 
           private
 
+          def normalize_node_identification(node_name, class_name)
+            name  = StringModifiers::Underscorer.new.underscore(node_name.to_s)
+            klass = determine_node_class(name, class_name)
+
+            [name, klass]
+          end
+
+          def determine_node_class(node_name, class_name)
+            return Object.const_get(class_name.to_s) if class_name
+            Object.const_get(StringModifiers::Camelizer.new.camelize(node_name))
+          end
+
+          def parent_node_on(child_klass)
+            unless (node_name = child_klass.parent_nodes_map.key(self))
+              raise ArgumentError,
+                    "Child node class must have a foreign_key field set for parent. "\
+                    "Use '.parent_node' method on child class to set correct parent_node relation."
+            end
+
+            node_name
+          end
+
           def register_defined_field(name, type)
             @fields_list.push(name)
             @fields[name] = { type: type }
@@ -191,14 +239,6 @@ module Persisty
                 instance_variable_set(:"@#{attribute}", new_value)
               end
             end
-          end
-
-          def parent_node_class(parent_node_name, class_name)
-            return Object.const_get(class_name.to_s) if class_name
-
-            Object.const_get(
-              StringModifiers::Camelizer.new.camelize(parent_node_name)
-            )
           end
 
           def define_parent_scope_handling_methods(parent_scope_name, parent_scope_klass, foreign_key_field)
