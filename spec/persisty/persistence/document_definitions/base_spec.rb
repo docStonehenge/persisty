@@ -180,6 +180,18 @@ module Persisty
 
                   @subject.stub_entity = entity
                 end
+
+                it 'raises TypeError when trying to assign object of different type' do
+                  StubEntity.parent_node :test_class
+
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect {
+                    @subject.stub_entity = Object.new
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'stub_entity'")
+                end
               end
 
               context 'when class_name is present' do
@@ -332,6 +344,18 @@ module Persisty
 
                   @subject.foo = entity
                 end
+
+                it 'raises TypeError when trying to assign object of different type' do
+                  StubEntity.parent_node :test_class
+
+                  described_class.child_node :foo, class_name: 'StubEntity'
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect {
+                    @subject.foo = Object.new
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'foo'")
+                end
               end
             end
 
@@ -362,7 +386,7 @@ module Persisty
 
                   expect {
                     @subject.string = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined parent_scope 'string'")
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'string'")
                 end
 
                 it 'performs lazy load on parent_node getter finding by foreign_key on repository' do
@@ -474,7 +498,7 @@ module Persisty
 
                   expect {
                     @subject.foo = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined parent_scope 'foo'")
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'foo'")
                 end
 
                 it 'performs lazy load on parent_node getter finding by foreign_key on repository' do
@@ -811,7 +835,7 @@ module Persisty
                     id: id, first_name: 'John',
                     dob: Date.parse('27/10/1990'), stub_entity: String.new
                   )
-                }.to raise_error(TypeError, "Object is a type mismatch from defined parent_scope 'stub_entity'")
+                }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'stub_entity'")
               end
             end
 
@@ -890,7 +914,7 @@ module Persisty
                     'id' => id, 'first_name' => 'John',
                     'dob' => Date.parse('27/10/1990'), 'stub_entity' => String.new
                   )
-                }.to raise_error(TypeError, "Object is a type mismatch from defined parent_scope 'stub_entity'")
+                }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'stub_entity'")
               end
             end
           end

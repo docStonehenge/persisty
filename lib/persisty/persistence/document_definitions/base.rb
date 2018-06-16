@@ -135,32 +135,8 @@ module Persisty
             child_set_parent_node = parent_node_on(child_klass)
 
             instance_eval do
-              define_method("#{child}") do
-                if instance_variable_get("@#{child}").nil?
-                  child_obj = DocumentManager.new.find_all(
-                    child_klass, filter: { :"#{child_set_parent_node}_id" => id }
-                  ).first
-
-                  instance_variable_set("@#{child}", child_obj)
-                end
-
-                instance_variable_get("@#{child}")
-              end
-
-              define_method("#{child}=") do |child_obj|
-                parent_foreign_key_field = "#{child_set_parent_node}_id="
-                previous_child = instance_variable_get("@#{child}")
-
-                return if previous_child and previous_child.id == child_obj&.id
-
-                if previous_child
-                  previous_child.public_send(parent_foreign_key_field, nil)
-                  DocumentManager.new.remove(previous_child)
-                end
-
-                child_obj.public_send(parent_foreign_key_field, id) if child_obj
-                instance_variable_set("@#{child}", child_obj)
-              end
+              define_single_child_scope_getter(child, child_klass, child_set_parent_node)
+              define_single_child_scope_setter(child, child_klass, child_set_parent_node)
             end
           end
 
@@ -279,10 +255,7 @@ module Persisty
 
           def define_parent_scope_setter(name, parent_scope_klass, foreign_key_field)
             define_method("#{name}=") do |parent_object|
-              unless parent_object.nil? or parent_object.is_a? parent_scope_klass
-                raise TypeError, "Object is a type mismatch from defined parent_scope '#{name}'"
-              end
-
+              check_object_type_based_on(parent_scope_klass, name, parent_object)
               instance_variable_set("@#{name}", parent_object)
               instance_variable_set("@#{foreign_key_field}", parent_object&.id)
             end
@@ -302,9 +275,46 @@ module Persisty
               instance_variable_get("@#{name}")
             end
           end
+
+          def define_single_child_scope_getter(child_name, child_klass, child_set_parent_node)
+            define_method("#{child_name}") do
+              if instance_variable_get("@#{child_name}").nil?
+                child_obj = DocumentManager.new.find_all(
+                  child_klass, filter: { :"#{child_set_parent_node}_id" => id }
+                ).first
+
+                instance_variable_set("@#{child_name}", child_obj)
+              end
+
+              instance_variable_get("@#{child_name}")
+            end
+          end
+
+          def define_single_child_scope_setter(child_name, child_klass, child_set_parent_node)
+            define_method("#{child_name}=") do |child_obj|
+              check_object_type_based_on(child_klass, child_name, child_obj)
+              parent_foreign_key_field = "#{child_set_parent_node}_id="
+              previous_child = instance_variable_get("@#{child_name}")
+
+              return if previous_child and previous_child.id == child_obj&.id
+
+              if previous_child
+                previous_child.public_send(parent_foreign_key_field, nil)
+                DocumentManager.new.remove(previous_child)
+              end
+
+              child_obj.public_send(parent_foreign_key_field, id) if child_obj
+              instance_variable_set("@#{child_name}", child_obj)
+            end
+          end
         end
 
         private
+
+        def check_object_type_based_on(scope_klass, scope_name, object)
+          return if object.nil? or object.is_a? scope_klass
+          raise TypeError, "Object is a type mismatch from defined scope '#{scope_name}'"
+        end
 
         def initialize_fields_with(attributes)
           fields.each do |name, spec|
