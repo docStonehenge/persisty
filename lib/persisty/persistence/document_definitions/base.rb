@@ -131,23 +131,34 @@ module Persisty
 
           def child_node(name, class_name: nil)
             child, child_klass = normalize_node_identification(name, class_name)
-
-            @child_nodes_list.push(child.to_sym)
-            @child_nodes_map[child.to_sym] = child_klass
-
+            register_defined_node(:child_node, child, child_klass)
             child_set_parent_node = parent_node_on(child_klass)
 
             instance_eval do
               define_method("#{child}") do
-                child_obj = DocumentManager.new.find_all(
-                  child_klass, filter: { :"#{child_set_parent_node}_id" => id }
-                ).first
+                if instance_variable_get("@#{child}").nil?
+                  child_obj = DocumentManager.new.find_all(
+                    child_klass, filter: { :"#{child_set_parent_node}_id" => id }
+                  ).first
 
-                instance_variable_set("@#{child}", child_obj)
+                  instance_variable_set("@#{child}", child_obj)
+                end
+
+                instance_variable_get("@#{child}")
               end
 
               define_method("#{child}=") do |child_obj|
-                child_obj.public_send("#{child_set_parent_node}_id=", id)
+                parent_foreign_key_field = "#{child_set_parent_node}_id="
+                previous_child = instance_variable_get("@#{child}")
+
+                return if previous_child and previous_child.id == child_obj&.id
+
+                if previous_child
+                  previous_child.public_send(parent_foreign_key_field, nil)
+                  DocumentManager.new.remove(previous_child)
+                end
+
+                child_obj.public_send(parent_foreign_key_field, id) if child_obj
                 instance_variable_set("@#{child}", child_obj)
               end
             end
@@ -155,9 +166,7 @@ module Persisty
 
           def parent_node(name, class_name: nil)
             parent_name, parent_klass = normalize_node_identification(name, class_name)
-
-            @parent_nodes_list.push(parent_name.to_sym)
-            @parent_nodes_map[parent_name.to_sym] = { type: parent_klass }
+            register_defined_node(:parent_node, parent_name, parent_klass)
 
             foreign_key_field = (parent_name + '_id').to_sym
             register_defined_field foreign_key_field, BSON::ObjectId
@@ -229,6 +238,11 @@ module Persisty
           def register_defined_field(name, type)
             @fields_list.push(name)
             @fields[name] = { type: type }
+          end
+
+          def register_defined_node(node_type, name, node_klass)
+            instance_variable_get("@#{node_type}s_list").push(name.to_sym)
+            instance_variable_get("@#{node_type}s_map")[name.to_sym] = node_klass
           end
 
           def define_setter_method_for(attribute, type) # :nodoc:

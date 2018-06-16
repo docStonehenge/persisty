@@ -9,7 +9,11 @@ module Persisty
         let(:document_manager) { double(:document_manager) }
 
         describe 'ClassMethods' do
-          let(:described_class) { Class.new { include Base } }
+          class ::TestClass
+            include Base
+          end
+
+          let(:described_class) { TestClass }
 
           it 'defines ID field' do
             expect(described_class.new).to have_id_defined
@@ -78,7 +82,7 @@ module Persisty
                   expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
                 end
 
-                it 'resolves parent id at child on child node setter' do
+                it 'returns nil on getter when no child has been found' do
                   allow(StubEntity).to receive(
                                          :parent_nodes_map
                                        ).and_return(class: described_class)
@@ -87,7 +91,92 @@ module Persisty
 
                   @subject.id = BSON::ObjectId.new
 
-                  expect(entity).to receive(:class_id=).once.with(@subject.id)
+                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+
+                  expect(
+                    document_manager
+                  ).to receive(:find_all).once.with(
+                         StubEntity, filter: { class_id: @subject.id }
+                       ).and_return []
+
+                  expect(@subject.stub_entity).to be_nil
+                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                end
+
+                it "doesn't call DocumentManager when child node is already present" do
+                  StubEntity.parent_node :test_class
+
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+                  entity.id   = BSON::ObjectId.new
+                  @subject.instance_variable_set '@stub_entity', entity
+
+                  expect(DocumentManager).not_to receive(:new)
+
+                  expect(@subject.stub_entity).to eql entity
+                  expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+                end
+
+                it 'resolves parent id at child on child node setter, registering previous child to be removed' do
+                  StubEntity.parent_node :test_class
+
+                  previous_child = StubEntity.new(id: BSON::ObjectId.new)
+
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+                  @subject.instance_variable_set '@stub_entity', previous_child
+
+                  expect(previous_child).to receive(:test_class_id=).once.with(nil)
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+                  expect(document_manager).to receive(:remove).once.with(previous_child)
+
+                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+
+                  @subject.stub_entity = entity
+                end
+
+                it 'resolves parent id at child on child node setter, not registering previous nil child' do
+                  StubEntity.parent_node :test_class
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(DocumentManager).not_to receive(:new)
+
+                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+
+                  @subject.stub_entity = entity
+                end
+
+                it "doesn't try to change foreign key on nil child" do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(test_class: described_class)
+
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(DocumentManager).not_to receive(:new)
+
+                  @subject.stub_entity = nil
+                end
+
+                it "doesn't try to change foreign key on same child as previous" do
+                  StubEntity.parent_node :test_class
+
+                  described_class.child_node :stub_entity
+
+                  @subject.id = BSON::ObjectId.new
+                  entity.id   = BSON::ObjectId.new
+                  @subject.instance_variable_set '@stub_entity', entity
+
+                  expect(entity).not_to receive(:test_class_id=).with(any_args)
+                  expect(DocumentManager).not_to receive(:new)
 
                   @subject.stub_entity = entity
                 end
@@ -144,16 +233,102 @@ module Persisty
                   expect(@subject.instance_variable_get(:@foo)).to eql entity
                 end
 
-                it 'resolves parent id at child on child node setter' do
+                it 'returns nil on getter when no child has been found' do
                   allow(StubEntity).to receive(
                                          :parent_nodes_map
-                                       ).and_return(parent_name: described_class)
+                                       ).and_return(class: described_class)
+
+                  described_class.child_node :foo, class_name: StubEntity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(@subject.instance_variable_get(:@foo)).to be_nil
+
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+
+                  expect(
+                    document_manager
+                  ).to receive(:find_all).once.with(
+                         StubEntity, filter: { class_id: @subject.id }
+                       ).and_return []
+
+                  expect(@subject.foo).to be_nil
+                  expect(@subject.instance_variable_get(:@foo)).to be_nil
+                end
+
+                it "doesn't call DocumentManager when child node is already present" do
+                  StubEntity.parent_node :test_class
 
                   described_class.child_node :foo, class_name: 'StubEntity'
 
                   @subject.id = BSON::ObjectId.new
+                  entity.id   = BSON::ObjectId.new
 
-                  expect(entity).to receive(:parent_name_id=).once.with(@subject.id)
+                  @subject.instance_variable_set '@foo', entity
+
+                  expect(DocumentManager).not_to receive(:new)
+
+                  expect(@subject.foo).to eql entity
+                  expect(@subject.instance_variable_get(:@foo)).to eql entity
+                end
+
+                it 'resolves parent id at child on child node setter, registering previous child to be removed' do
+                  StubEntity.parent_node :test_class
+
+                  previous_child = StubEntity.new(id: BSON::ObjectId.new)
+
+                  described_class.child_node :foo, class_name: StubEntity
+
+                  @subject.id = BSON::ObjectId.new
+                  @subject.instance_variable_set '@foo', previous_child
+
+                  expect(previous_child).to receive(:test_class_id=).once.with(nil)
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+                  expect(document_manager).to receive(:remove).once.with(previous_child)
+
+                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+
+                  @subject.foo = entity
+                end
+
+                it 'resolves parent id at child on child node setter, not registering previous nil child' do
+                  StubEntity.parent_node :test_class
+                  described_class.child_node :foo, class_name: 'StubEntity'
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(DocumentManager).not_to receive(:new)
+
+                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+
+                  @subject.foo = entity
+                end
+
+                it "doesn't try to change foreign key on nil child" do
+                  allow(StubEntity).to receive(
+                                         :parent_nodes_map
+                                       ).and_return(test_class: described_class)
+
+                  described_class.child_node :foo, class_name: ::StubEntity
+
+                  @subject.id = BSON::ObjectId.new
+
+                  expect(DocumentManager).not_to receive(:new)
+
+                  @subject.foo = nil
+                end
+
+                it "doesn't try to change foreign key on same child as previous" do
+                  StubEntity.parent_node :test_class
+
+                  described_class.child_node :foo, class_name: StubEntity
+
+                  @subject.id = BSON::ObjectId.new
+                  entity.id   = BSON::ObjectId.new
+                  @subject.instance_variable_set '@foo', entity
+
+                  expect(entity).not_to receive(:test_class_id=).with(any_args)
+                  expect(DocumentManager).not_to receive(:new)
 
                   @subject.foo = entity
                 end
@@ -171,7 +346,7 @@ module Persisty
                   described_class.parent_node :string
 
                   expect(described_class.parent_nodes_list).to include(:string)
-                  expect(described_class.parent_nodes_map).to include(string: { type: String })
+                  expect(described_class.parent_nodes_map).to include(string: String)
 
                   expect(described_class.fields_list).to include(:string_id)
                   expect(described_class.fields).to include(string_id: { type: BSON::ObjectId })
@@ -283,7 +458,7 @@ module Persisty
                   described_class.parent_node :foo, class_name: String
 
                   expect(described_class.parent_nodes_list).to include(:foo)
-                  expect(described_class.parent_nodes_map).to include(foo: { type: String })
+                  expect(described_class.parent_nodes_map).to include(foo: String)
 
                   expect(described_class.fields_list).to include(:foo_id)
                   expect(described_class.fields).to include(foo_id: { type: BSON::ObjectId })
@@ -859,38 +1034,16 @@ module Persisty
           end
 
           describe '#to_mongo_document' do
-            class EntityWithAllValues
-              include Base
-
-              parent_node :test_scope, class_name: ::StubEntity
-
-              define_field :field1, type: String
-              define_field :field2, type: Integer
-              define_field :field3, type: Float
-              define_field :field4, type: BigDecimal
-              define_field :field5, type: Boolean
-              define_field :field6, type: Array
-              define_field :field7, type: Hash
-              define_field :field8, type: BSON::ObjectId
-              define_field :field9, type: Date
-              define_field :field10, type: DateTime
-              define_field :field11, type: Time
-            end
+            include_context 'EntityWithAllValues'
 
             subject do
               EntityWithAllValues.new(
-                id: id,
-                field1: "Foo",
-                field2: 123,
-                field3: 123.0,
-                field4: BigDecimal.new("123.0"),
-                field5: true,
+                id: id, field1: "Foo", field2: 123, field3: 123.0,
+                field4: BigDecimal.new("123.0"), field5: true,
                 field6: [123, BigDecimal.new("200")],
                 field7: { foo: Date.parse("01/01/1990"), 'bazz' => BigDecimal.new(400) },
-                field8: id,
-                field9: Date.parse('01/01/1990'),
-                field10: DateTime.new(2017, 11, 21),
-                field11: Time.new(2017, 11, 21)
+                field8: id, field9: Date.parse('01/01/1990'),
+                field10: DateTime.new(2017, 11, 21), field11: Time.new(2017, 11, 21)
               )
             end
 
@@ -903,19 +1056,12 @@ module Persisty
               expect(
                 subject.to_mongo_document
               ).to eql(
-                     _id: id,
-                     field1: "Foo",
-                     field2: 123,
-                     field3: 123.0,
-                     field4: 123.0,
-                     field5: true,
-                     field6: [123, 200.0],
+                     _id: id, field1: "Foo", field2: 123, field3: 123.0,
+                     field4: 123.0, field5: true, field6: [123, 200.0],
                      field7: { foo: Date.parse("01/01/1990"), 'bazz' => 400.0 },
-                     field8: id,
-                     field9: Date.parse('01/01/1990'),
+                     field8: id, field9: Date.parse('01/01/1990'),
                      field10: DateTime.new(2017, 11, 21),
-                     field11: Time.new(2017, 11, 21),
-                     test_scope_id: entity.id
+                     field11: Time.new(2017, 11, 21), test_scope_id: entity.id
                    )
             end
 
@@ -923,18 +1069,12 @@ module Persisty
               expect(
                 subject.to_mongo_document(include_id_field: false)
               ).to eql(
-                     field1: "Foo",
-                     field2: 123,
-                     field3: 123.0,
-                     field4: 123.0,
-                     field5: true,
-                     field6: [123, 200.0],
+                     field1: "Foo", field2: 123, field3: 123.0, field4: 123.0,
+                     field5: true, field6: [123, 200.0],
                      field7: { foo: Date.parse("01/01/1990"), 'bazz' => 400.0 },
-                     field8: id,
-                     field9: Date.parse('01/01/1990'),
+                     field8: id, field9: Date.parse('01/01/1990'),
                      field10: DateTime.new(2017, 11, 21),
-                     field11: Time.new(2017, 11, 21),
-                     test_scope_id: entity.id
+                     field11: Time.new(2017, 11, 21), test_scope_id: entity.id
                    )
             end
           end
