@@ -298,11 +298,7 @@ module Persisty
 
               return if previous_child and previous_child.id == child_obj&.id
 
-              if previous_child
-                previous_child.public_send(parent_foreign_key_field, nil)
-                DocumentManager.new.remove(previous_child)
-              end
-
+              handle_previous_child_removal previous_child, parent_foreign_key_field
               child_obj.public_send(parent_foreign_key_field, id) if child_obj
               instance_variable_set("@#{child_name}", child_obj)
             end
@@ -314,6 +310,12 @@ module Persisty
         def check_object_type_based_on(scope_klass, scope_name, object)
           return if object.nil? or object.is_a? scope_klass
           raise TypeError, "Object is a type mismatch from defined scope '#{scope_name}'"
+        end
+
+        def handle_previous_child_removal(previous_child, foreign_key_field)
+          return unless previous_child
+          previous_child.public_send(foreign_key_field, nil)
+          DocumentManager.new.remove(previous_child)
         end
 
         def initialize_fields_with(attributes)
