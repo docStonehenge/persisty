@@ -135,8 +135,8 @@ module Persisty
             child_set_parent_node = parent_node_on(child_klass)
 
             instance_eval do
-              define_single_child_scope_getter(child, child_klass, child_set_parent_node)
-              define_single_child_scope_setter(child, child_klass, child_set_parent_node)
+              define_single_child_scope_reader(child, child_klass, child_set_parent_node)
+              define_single_child_scope_writer(child, child_klass, child_set_parent_node)
             end
           end
 
@@ -158,7 +158,7 @@ module Persisty
           # and +fields+ hash with <tt>name</tt> and <tt>type</tt>.
           # For any attributes besides 'id', calls registration of entity object
           # into current UnitOfWork.
-          # When attribute is 'id', setter method will check if entity is detached:
+          # When attribute is 'id', writer method will check if entity is detached:
           # if it is, then it's possible to change ID (considering that a detached entity
           # is't present on current UnitOfWork); if it is not, it raises an ArgumentError.
           #
@@ -184,7 +184,7 @@ module Persisty
             name = name.to_sym
             register_defined_field name, type
             attr_reader name
-            define_setter_method_for name, type
+            define_writer_method_for name, type
           end
 
           private
@@ -221,7 +221,7 @@ module Persisty
             instance_variable_get("@#{node_type}s_map")[name.to_sym] = node_klass
           end
 
-          def define_setter_method_for(attribute, type) # :nodoc:
+          def define_writer_method_for(attribute, type) # :nodoc:
             instance_eval do
               define_method("#{attribute}=") do |value|
                 new_value = Entities::Field.new(type: type, value: value).coerce
@@ -243,25 +243,25 @@ module Persisty
                 end
               end
 
-              define_parent_scope_setter(
+              define_parent_scope_writer(
                 parent_scope_name, parent_scope_klass, foreign_key_field
               )
 
-              define_parent_scope_getter(
+              define_parent_scope_reader(
                 parent_scope_name, parent_scope_klass, foreign_key_field
               )
             end
           end
 
-          def define_parent_scope_setter(name, parent_scope_klass, foreign_key_field)
+          def define_parent_scope_writer(name, parent_scope_klass, foreign_key_field)
             define_method("#{name}=") do |parent_object|
               check_object_type_based_on(parent_scope_klass, name, parent_object)
               instance_variable_set("@#{name}", parent_object)
-              instance_variable_set("@#{foreign_key_field}", parent_object&.id)
+              public_send("#{foreign_key_field}=", parent_object&.id)
             end
           end
 
-          def define_parent_scope_getter(name, parent_scope_klass, foreign_key_field)
+          def define_parent_scope_reader(name, parent_scope_klass, foreign_key_field)
             define_method("#{name}") do
               if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{name}").nil?
                 parent = DocumentManager.new.find(
@@ -276,7 +276,7 @@ module Persisty
             end
           end
 
-          def define_single_child_scope_getter(child_name, child_klass, child_set_parent_node)
+          def define_single_child_scope_reader(child_name, child_klass, child_set_parent_node)
             define_method("#{child_name}") do
               if instance_variable_get("@#{child_name}").nil?
                 child_obj = DocumentManager.new.find_all(
@@ -290,7 +290,7 @@ module Persisty
             end
           end
 
-          def define_single_child_scope_setter(child_name, child_klass, child_set_parent_node)
+          def define_single_child_scope_writer(child_name, child_klass, child_set_parent_node)
             define_method("#{child_name}=") do |child_obj|
               check_object_type_based_on(child_klass, child_name, child_obj)
               parent_foreign_key_field = "#{child_set_parent_node}_id="

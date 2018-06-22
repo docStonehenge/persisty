@@ -59,7 +59,7 @@ module Persisty
                        )
                 end
 
-                it 'performs lazy load on child node getter finding by parent id' do
+                it 'performs lazy load on child node reader finding by parent id' do
                   allow(StubEntity).to receive(
                                          :parent_nodes_map
                                        ).and_return(class: described_class)
@@ -82,7 +82,7 @@ module Persisty
                   expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
                 end
 
-                it 'returns nil on getter when no child has been found' do
+                it 'returns nil on reader when no child has been found' do
                   allow(StubEntity).to receive(
                                          :parent_nodes_map
                                        ).and_return(class: described_class)
@@ -120,7 +120,7 @@ module Persisty
                   expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
                 end
 
-                it 'resolves parent id at child on child node setter, registering previous child to be removed' do
+                it 'resolves parent id at child on child node writer, registering previous child to be removed' do
                   StubEntity.parent_node :test_class
 
                   previous_child = StubEntity.new(id: BSON::ObjectId.new)
@@ -139,7 +139,7 @@ module Persisty
                   @subject.stub_entity = entity
                 end
 
-                it 'resolves parent id at child on child node setter, not registering previous nil child' do
+                it 'resolves parent id at child on child node writer, not registering previous nil child' do
                   StubEntity.parent_node :test_class
                   described_class.child_node :stub_entity
 
@@ -222,7 +222,7 @@ module Persisty
                        )
                 end
 
-                it 'performs lazy load on child node getter finding by parent id' do
+                it 'performs lazy load on child node reader finding by parent id' do
                   allow(StubEntity).to receive(
                                          :parent_nodes_map
                                        ).and_return(parent_name: described_class)
@@ -245,7 +245,7 @@ module Persisty
                   expect(@subject.instance_variable_get(:@foo)).to eql entity
                 end
 
-                it 'returns nil on getter when no child has been found' do
+                it 'returns nil on reader when no child has been found' do
                   allow(StubEntity).to receive(
                                          :parent_nodes_map
                                        ).and_return(class: described_class)
@@ -284,7 +284,7 @@ module Persisty
                   expect(@subject.instance_variable_get(:@foo)).to eql entity
                 end
 
-                it 'resolves parent id at child on child node setter, registering previous child to be removed' do
+                it 'resolves parent id at child on child node writer, registering previous child to be removed' do
                   StubEntity.parent_node :test_class
 
                   previous_child = StubEntity.new(id: BSON::ObjectId.new)
@@ -303,7 +303,7 @@ module Persisty
                   @subject.foo = entity
                 end
 
-                it 'resolves parent id at child on child node setter, not registering previous nil child' do
+                it 'resolves parent id at child on child node writer, not registering previous nil child' do
                   StubEntity.parent_node :test_class
                   described_class.child_node :foo, class_name: 'StubEntity'
 
@@ -381,7 +381,7 @@ module Persisty
                   expect(@subject).to respond_to(:string=)
                 end
 
-                it 'raises TypeError with custom message on setter when object is a type mismatch' do
+                it 'raises TypeError with custom message on writer when object is a type mismatch' do
                   described_class.parent_node :string
 
                   expect {
@@ -389,7 +389,7 @@ module Persisty
                   }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'string'")
                 end
 
-                it 'performs lazy load on parent_node getter finding by foreign_key on repository' do
+                it 'performs lazy load on parent_node reader finding by foreign_key on repository' do
                   entity.id = BSON::ObjectId.new
                   Persistence::UnitOfWork.current.register_clean @subject
 
@@ -408,7 +408,7 @@ module Persisty
                   expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
                 end
 
-                it 'sets foreign_key id on foreign_key field from object passed as parent_node on setter' do
+                it 'sets foreign_key id on foreign_key field from object passed as parent_node on writer' do
                   entity.id = BSON::ObjectId.new
                   Persistence::UnitOfWork.current.register_clean @subject
                   described_class.parent_node :stub_entity
@@ -424,7 +424,7 @@ module Persisty
                   }.to change(@subject, :stub_entity_id).from(nil).to(entity.id)
                 end
 
-                it 'clears foreign key field when entity passed on setter is nil' do
+                it 'clears foreign key field when entity passed on writer is nil' do
                   entity.id = BSON::ObjectId.new
                   Persistence::UnitOfWork.current.register_clean @subject
                   described_class.parent_node :stub_entity
@@ -493,7 +493,7 @@ module Persisty
                   expect(@subject).to respond_to(:foo=)
                 end
 
-                it 'raises TypeError with custom message on setter when object is a type mismatch' do
+                it 'raises TypeError with custom message on writer when object is a type mismatch' do
                   described_class.parent_node :foo, class_name: String
 
                   expect {
@@ -501,7 +501,7 @@ module Persisty
                   }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'foo'")
                 end
 
-                it 'performs lazy load on parent_node getter finding by foreign_key on repository' do
+                it 'performs lazy load on parent_node reader finding by foreign_key on repository' do
                   entity.id = BSON::ObjectId.new
                   Persistence::UnitOfWork.current.register_clean @subject
 
@@ -520,7 +520,7 @@ module Persisty
                   expect(@subject.instance_variable_get(:@foo)).to eql entity
                 end
 
-                it 'sets foreign_key id on foreign_key field from object passed as parent_node on setter' do
+                it 'sets foreign_key id on foreign_key field from object passed as parent_node on writer' do
                   entity.id = BSON::ObjectId.new
                   Persistence::UnitOfWork.current.register_clean @subject
                   described_class.parent_node :foo, class_name: 'StubEntity'
@@ -536,7 +536,7 @@ module Persisty
                   }.to change(@subject, :foo_id).from(nil).to(entity.id)
                 end
 
-                it 'clears foreign key field when entity passed on setter is nil' do
+                it 'clears foreign key field when entity passed on writer is nil' do
                   entity.id = BSON::ObjectId.new
                   Persistence::UnitOfWork.current.register_clean @subject
                   described_class.parent_node :foo, class_name: StubEntity
@@ -601,7 +601,7 @@ module Persisty
                     Persistence::UnitOfWork.current.register_clean @subject
                   end
 
-                  it 'defines getter and setter for field, and setter will raise ArgumentError' do
+                  it 'defines reader and writer for field, and writer will raise ArgumentError' do
                     expect(described_class.fields_list).to include(:id)
                     expect(described_class.fields).to include(id: { type: BSON::ObjectId })
 
@@ -622,7 +622,7 @@ module Persisty
                     Persistence::UnitOfWork.new_current
                   end
 
-                  it 'defines getter and setter for field, allows setting id correctly' do
+                  it 'defines reader and writer for field, allows setting id correctly' do
                     expect(described_class.fields_list).to include(:id)
                     expect(described_class.fields).to include(id: { type: BSON::ObjectId })
 
@@ -642,7 +642,7 @@ module Persisty
                     Persistence::UnitOfWork.current = nil
                   end
 
-                  it 'defines getter and setter for field, allows setting id correctly' do
+                  it 'defines reader and writer for field, allows setting id correctly' do
                     expect(described_class.fields_list).to include(:id)
                     expect(described_class.fields).to include(id: { type: BSON::ObjectId })
 
@@ -671,7 +671,7 @@ module Persisty
                     expect(@subject).to respond_to(:name=)
                   end
 
-                  it 'defines getter, setter, converting field and registering object into UnitOfWork' do
+                  it 'defines reader, writer, converting field and registering object into UnitOfWork' do
                     expect {
                       @subject.name = 'New name'
 
@@ -690,7 +690,7 @@ module Persisty
                     expect(@subject).to respond_to(:name=)
                   end
 
-                  it 'defines getter and setter for field; setter does not register on UnitOfWork' do
+                  it 'defines reader and writer for field; writer does not register on UnitOfWork' do
                     expect {
                       @subject.name = 'New name'
 
@@ -709,7 +709,7 @@ module Persisty
                     expect(@subject).to respond_to(:name=)
                   end
 
-                  it 'defines getter, setter, converting field only' do
+                  it 'defines reader, writer, converting field only' do
                     expect {
                       @subject.name = 'New name'
                     }.to change(@subject, :name).to('New name')
