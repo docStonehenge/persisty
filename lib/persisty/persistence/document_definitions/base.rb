@@ -67,7 +67,7 @@ module Persisty
           attributes[:id] = attributes[:_id] || attributes[:id]
 
           initialize_fields_with attributes
-          initialize_parent_nodes_based_on attributes
+          initialize_nodes_based_on attributes
         end
 
         # Enables comparison with another entity object, using Comparable built-in behavior.
@@ -119,6 +119,10 @@ module Persisty
 
         def parent_nodes_list
           self.class.parent_nodes_list
+        end
+
+        def child_nodes_list
+          self.class.child_nodes_list
         end
 
         module ClassMethods
@@ -329,9 +333,9 @@ module Persisty
           end
         end
 
-        def initialize_parent_nodes_based_on(attributes)
+        def initialize_nodes_based_on(attributes)
           attributes.select do |attr|
-            parent_nodes_list.include?(attr)
+            parent_nodes_list.include?(attr) or child_nodes_list.include?(attr)
           end.each { |node, value| public_send("#{node}=", value) }
         end
 

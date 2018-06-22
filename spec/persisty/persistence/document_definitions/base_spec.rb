@@ -721,7 +721,7 @@ module Persisty
         end
 
         describe 'InstanceMethods' do
-          class TestEntity
+          class ::TestEntity
             include Base
 
             parent_node :stub_entity
@@ -730,7 +730,7 @@ module Persisty
             define_field :dob,        type: Date
           end
 
-          let(:described_class) { TestEntity }
+          let(:described_class) { ::TestEntity }
 
           describe '#fields' do
             it 'returns list of fields set on object class' do
@@ -746,6 +746,16 @@ module Persisty
           describe '#parent_nodes_list' do
             it 'returns list of parent_nodes set on object class' do
               expect(subject.parent_nodes_list).to eql [:stub_entity]
+            end
+          end
+
+          describe '#child_nodes_list' do
+            it 'returns list of child_nodes set on object class' do
+              StubEntity.child_node :test_entity
+
+              subject = StubEntity.new
+
+              expect(subject.child_nodes_list).to eql [:test_entity]
             end
           end
 
@@ -829,6 +839,16 @@ module Persisty
                 expect(subject.stub_entity_id).to eql entity.id
               end
 
+              it 'initializes with child node object' do
+                StubEntity.child_node :test_entity
+
+                child = described_class.new(id: BSON::ObjectId.new)
+
+                subject = StubEntity.new(id: BSON::ObjectId.new, test_entity: child)
+
+                expect(subject.test_entity).to eql child
+              end
+
               it 'raises error on initialization when parent node object is of wrong type' do
                 expect {
                   described_class.new(
@@ -906,6 +926,16 @@ module Persisty
                 expect(subject.dob).to eql Date.parse('27/10/1990')
                 expect(subject.stub_entity).to eql entity
                 expect(subject.stub_entity_id).to eql entity.id
+              end
+
+              it 'initializes with child node object' do
+                StubEntity.child_node :test_entity
+
+                child = described_class.new(id: BSON::ObjectId.new)
+
+                subject = StubEntity.new('id' => BSON::ObjectId.new, 'test_entity' => child)
+
+                expect(subject.test_entity).to eql child
               end
 
               it 'raises error on initialization when parent node object is of wrong type' do
