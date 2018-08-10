@@ -125,6 +125,10 @@ module Persisty
           self.class.child_nodes_list
         end
 
+        def child_nodes_map
+          self.class.child_nodes_map
+        end
+
         module ClassMethods
           # Returns the class name of the repository to handle persistence on entity.
           # Should be overwritten by concrete DocumentDefinitions mixin created for entity.
@@ -239,12 +243,20 @@ module Persisty
             instance_eval do
               define_method("#{foreign_key_field}=") do |value|
                 new_value = Entities::Field.new(type: BSON::ObjectId, value: value).coerce
+
+                return if instance_variable_get(:"@#{foreign_key_field}") == new_value
+
                 handle_registration_for_changes_on foreign_key_field, new_value
                 instance_variable_set(:"@#{foreign_key_field}", new_value)
+                current_parent = instance_variable_get(:"@#{parent_scope_name}")
 
-                unless instance_variable_get(:"@#{parent_scope_name}")&.id == new_value
-                  instance_variable_set(:"@#{parent_scope_name}", nil)
+                if current_parent and new_value.nil?
+                  current_parent.public_send(
+                    "#{current_parent.child_nodes_map.key(self.class)}=", nil
+                  )
                 end
+
+                instance_variable_set(:"@#{parent_scope_name}", nil) unless current_parent&.id == new_value
               end
 
               define_parent_scope_writer(

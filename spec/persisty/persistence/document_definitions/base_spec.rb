@@ -447,6 +447,7 @@ module Persisty
                   entity.id = BSON::ObjectId.new
                   Persistence::UnitOfWork.current.register_clean @subject
                   described_class.parent_node :stub_entity
+                  ::StubEntity.child_node :test_class
                   @subject.stub_entity = entity
 
                   @subject.stub_entity_id = nil
@@ -474,6 +475,23 @@ module Persisty
 
                   @subject.stub_entity_id = BSON::ObjectId.new
                   expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                end
+
+                it 'clears child on previous parent when setting foreign_key to nil' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+
+                  described_class.parent_node :stub_entity
+                  StubEntity.child_node :test_class
+
+                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+                  expect(document_manager).to receive(:remove).once.with(@subject)
+
+                  entity.test_class = @subject
+                  @subject.stub_entity = entity
+                  @subject.stub_entity_id = nil
+
+                  expect(entity.instance_variable_get('@test_class')).to be_nil
                 end
               end
 
@@ -745,7 +763,7 @@ module Persisty
 
           describe '#parent_nodes_list' do
             it 'returns list of parent_nodes set on object class' do
-              expect(subject.parent_nodes_list).to eql [:stub_entity]
+              expect(subject.parent_nodes_list).to include :stub_entity
             end
           end
 
@@ -755,7 +773,17 @@ module Persisty
 
               subject = StubEntity.new
 
-              expect(subject.child_nodes_list).to eql [:test_entity]
+              expect(subject.child_nodes_list).to include :test_entity
+            end
+          end
+
+          describe '#child_nodes_map' do
+            it 'returns map of child_nodes on object class' do
+              StubEntity.child_node :test_entity
+
+              subject = StubEntity.new
+
+              expect(subject.child_nodes_map).to include(test_entity: ::TestEntity)
             end
           end
 
