@@ -120,10 +120,10 @@ module Persisty
                   expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
                 end
 
-                it 'resolves parent id at child on child node writer, registering previous child to be removed' do
+                it 'resolves parent at child on child node writer, registering previous child to be removed' do
                   StubEntity.parent_node :test_class
 
-                  previous_child = StubEntity.new(id: BSON::ObjectId.new)
+                  previous_child = StubEntity.new(id: BSON::ObjectId.new, test_class: @subject)
 
                   described_class.child_node :stub_entity
 
@@ -134,12 +134,12 @@ module Persisty
                   expect(DocumentManager).to receive(:new).once.and_return document_manager
                   expect(document_manager).to receive(:remove).once.with(previous_child)
 
-                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+                  expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.stub_entity = entity
                 end
 
-                it 'resolves parent id at child on child node writer, not registering previous nil child' do
+                it 'resolves parent at child on child node writer, not registering previous nil child' do
                   StubEntity.parent_node :test_class
                   described_class.child_node :stub_entity
 
@@ -147,7 +147,7 @@ module Persisty
 
                   expect(DocumentManager).not_to receive(:new)
 
-                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+                  expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.stub_entity = entity
                 end
@@ -166,7 +166,7 @@ module Persisty
                   @subject.stub_entity = nil
                 end
 
-                it "doesn't try to change foreign key on same child as previous" do
+                it "doesn't try to change parent on same child as previous" do
                   StubEntity.parent_node :test_class
 
                   described_class.child_node :stub_entity
@@ -175,10 +175,26 @@ module Persisty
                   entity.id   = BSON::ObjectId.new
                   @subject.instance_variable_set '@stub_entity', entity
 
-                  expect(entity).not_to receive(:test_class_id=).with(any_args)
+                  expect(entity).not_to receive(:test_class=).with(any_args)
                   expect(DocumentManager).not_to receive(:new)
 
                   @subject.stub_entity = entity
+                end
+
+                it "doesn't try to remove previous child that doesn't match parent" do
+                  StubEntity.parent_node :test_class
+                  described_class.child_node :stub_entity
+
+                  another_parent = TestClass.new(id: BSON::ObjectId.new)
+                  @subject.id = BSON::ObjectId.new
+                  entity.id   = BSON::ObjectId.new
+                  @subject.instance_variable_set '@stub_entity', entity
+                  entity.test_class = another_parent
+
+                  expect(entity).not_to receive(:test_class=).with(any_args)
+                  expect(DocumentManager).not_to receive(:new)
+
+                  @subject.stub_entity = nil
                 end
 
                 it 'raises TypeError when trying to assign object of different type' do
@@ -284,26 +300,26 @@ module Persisty
                   expect(@subject.instance_variable_get(:@foo)).to eql entity
                 end
 
-                it 'resolves parent id at child on child node writer, registering previous child to be removed' do
+                it 'resolves parent at child on child node writer, registering previous child to be removed' do
                   StubEntity.parent_node :test_class
 
-                  previous_child = StubEntity.new(id: BSON::ObjectId.new)
+                  previous_child = StubEntity.new(id: BSON::ObjectId.new, test_class: @subject)
 
                   described_class.child_node :foo, class_name: StubEntity
 
                   @subject.id = BSON::ObjectId.new
                   @subject.instance_variable_set '@foo', previous_child
 
-                  expect(previous_child).to receive(:test_class_id=).once.with(nil)
+                  expect(previous_child).to receive(:test_class=).once.with(nil)
                   expect(DocumentManager).to receive(:new).once.and_return document_manager
                   expect(document_manager).to receive(:remove).once.with(previous_child)
 
-                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+                  expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.foo = entity
                 end
 
-                it 'resolves parent id at child on child node writer, not registering previous nil child' do
+                it 'resolves parent at child on child node writer, not registering previous nil child' do
                   StubEntity.parent_node :test_class
                   described_class.child_node :foo, class_name: 'StubEntity'
 
@@ -311,7 +327,7 @@ module Persisty
 
                   expect(DocumentManager).not_to receive(:new)
 
-                  expect(entity).to receive(:test_class_id=).once.with(@subject.id)
+                  expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.foo = entity
                 end
@@ -330,7 +346,7 @@ module Persisty
                   @subject.foo = nil
                 end
 
-                it "doesn't try to change foreign key on same child as previous" do
+                it "doesn't try to change parent on same child as previous" do
                   StubEntity.parent_node :test_class
 
                   described_class.child_node :foo, class_name: StubEntity
@@ -339,7 +355,7 @@ module Persisty
                   entity.id   = BSON::ObjectId.new
                   @subject.instance_variable_set '@foo', entity
 
-                  expect(entity).not_to receive(:test_class_id=).with(any_args)
+                  expect(entity).not_to receive(:test_class=).with(any_args)
                   expect(DocumentManager).not_to receive(:new)
 
                   @subject.foo = entity
@@ -492,6 +508,37 @@ module Persisty
                   @subject.stub_entity_id = nil
 
                   expect(entity.instance_variable_get('@test_class')).to be_nil
+                end
+
+                it 'clears child on previous parent without removing its parent when setting foreign_key to other' do
+                  entity.id    = BSON::ObjectId.new
+                  other_parent = StubEntity.new(id: BSON::ObjectId.new)
+                  Persistence::UnitOfWork.current.register_clean @subject
+
+                  described_class.parent_node :stub_entity
+                  StubEntity.child_node :test_class
+
+                  expect_any_instance_of(DocumentManager).not_to receive(:remove).with(@subject)
+
+                  @subject.stub_entity = entity
+                  @subject.stub_entity_id = other_parent.id
+
+                  expect(entity.instance_variable_get('@test_class')).to be_nil
+                end
+
+                it 'halts any removing of previous parent on child when trying to set same foreign key' do
+                  entity.id = BSON::ObjectId.new
+                  Persistence::UnitOfWork.current.register_clean @subject
+
+                  described_class.parent_node :stub_entity
+                  StubEntity.child_node :test_class
+
+                  expect_any_instance_of(DocumentManager).not_to receive(:remove).with(@subject)
+
+                  entity.test_class = @subject
+                  @subject.stub_entity_id = entity.id
+
+                  expect(entity.instance_variable_get('@test_class')).to equal @subject
                 end
               end
 

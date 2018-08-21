@@ -250,13 +250,13 @@ module Persisty
                 instance_variable_set(:"@#{foreign_key_field}", new_value)
                 current_parent = instance_variable_get(:"@#{parent_scope_name}")
 
-                if current_parent and new_value.nil?
+                if current_parent and !current_parent.id.nil? and current_parent.id != new_value
                   current_parent.public_send(
                     "#{current_parent.child_nodes_map.key(self.class)}=", nil
                   )
-                end
 
-                instance_variable_set(:"@#{parent_scope_name}", nil) unless current_parent&.id == new_value
+                  instance_variable_set(:"@#{parent_scope_name}", nil)
+                end
               end
 
               define_parent_scope_writer(
@@ -309,13 +309,12 @@ module Persisty
           def define_single_child_scope_writer(child_name, child_klass, child_set_parent_node)
             define_method("#{child_name}=") do |child_obj|
               check_object_type_based_on(child_klass, child_name, child_obj)
-              parent_foreign_key_field = "#{child_set_parent_node}_id="
               previous_child = instance_variable_get("@#{child_name}")
 
               return if previous_child and previous_child.id == child_obj&.id
 
-              handle_previous_child_removal previous_child, parent_foreign_key_field
-              child_obj.public_send(parent_foreign_key_field, id) if child_obj
+              handle_previous_child_removal previous_child, child_set_parent_node
+              child_obj.public_send("#{child_set_parent_node}=", self) if child_obj
               instance_variable_set("@#{child_name}", child_obj)
             end
           end
@@ -328,9 +327,9 @@ module Persisty
           raise TypeError, "Object is a type mismatch from defined scope '#{scope_name}'"
         end
 
-        def handle_previous_child_removal(previous_child, foreign_key_field)
-          return unless previous_child
-          previous_child.public_send(foreign_key_field, nil)
+        def handle_previous_child_removal(previous_child, parent_node_name)
+          return unless previous_child and previous_child.public_send(parent_node_name) == self
+          previous_child.public_send("#{parent_node_name}=", nil)
           DocumentManager.new.remove(previous_child)
         end
 
