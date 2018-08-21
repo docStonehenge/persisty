@@ -206,7 +206,7 @@ module Persisty
 
                   expect {
                     @subject.stub_entity = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'stub_entity'")
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined node 'stub_entity'")
                 end
               end
 
@@ -370,7 +370,7 @@ module Persisty
 
                   expect {
                     @subject.foo = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'foo'")
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined node 'foo'")
                 end
               end
             end
@@ -402,7 +402,7 @@ module Persisty
 
                   expect {
                     @subject.string = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'string'")
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined node 'string'")
                 end
 
                 it 'performs lazy load on parent_node reader finding by foreign_key on repository' do
@@ -563,7 +563,7 @@ module Persisty
 
                   expect {
                     @subject.foo = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'foo'")
+                  }.to raise_error(TypeError, "Object is a type mismatch from defined node 'foo'")
                 end
 
                 it 'performs lazy load on parent_node reader finding by foreign_key on repository' do
@@ -930,7 +930,7 @@ module Persisty
                     id: id, first_name: 'John',
                     dob: Date.parse('27/10/1990'), stub_entity: String.new
                   )
-                }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'stub_entity'")
+                }.to raise_error(TypeError, "Object is a type mismatch from defined node 'stub_entity'")
               end
             end
 
@@ -1019,7 +1019,7 @@ module Persisty
                     'id' => id, 'first_name' => 'John',
                     'dob' => Date.parse('27/10/1990'), 'stub_entity' => String.new
                   )
-                }.to raise_error(TypeError, "Object is a type mismatch from defined scope 'stub_entity'")
+                }.to raise_error(TypeError, "Object is a type mismatch from defined node 'stub_entity'")
               end
             end
           end

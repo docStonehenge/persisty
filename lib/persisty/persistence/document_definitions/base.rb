@@ -143,8 +143,8 @@ module Persisty
             child_set_parent_node = parent_node_on(child_klass)
 
             instance_eval do
-              define_single_child_scope_reader(child, child_klass, child_set_parent_node)
-              define_single_child_scope_writer(child, child_klass, child_set_parent_node)
+              define_single_child_node_reader(child, child_klass, child_set_parent_node)
+              define_single_child_node_writer(child, child_klass, child_set_parent_node)
             end
           end
 
@@ -156,7 +156,7 @@ module Persisty
             register_defined_field foreign_key_field, BSON::ObjectId
             attr_reader foreign_key_field
 
-            define_parent_scope_handling_methods(
+            define_parent_node_handling_methods(
               parent_name, parent_klass, foreign_key_field
             )
           end
@@ -239,49 +239,41 @@ module Persisty
             end
           end
 
-          def define_parent_scope_handling_methods(parent_scope_name, parent_scope_klass, foreign_key_field)
+          def define_parent_node_handling_methods(parent_node_name, parent_node_klass, foreign_key_field)
             instance_eval do
-              define_method("#{foreign_key_field}=") do |value|
-                new_value = Entities::Field.new(type: BSON::ObjectId, value: value).coerce
+              define_method("#{foreign_key_field}=") do |id|
+                new_value = Entities::Field.new(type: BSON::ObjectId, value: id).coerce
 
                 return if instance_variable_get(:"@#{foreign_key_field}") == new_value
 
                 handle_registration_for_changes_on foreign_key_field, new_value
                 instance_variable_set(:"@#{foreign_key_field}", new_value)
-                current_parent = instance_variable_get(:"@#{parent_scope_name}")
-
-                if current_parent and !current_parent.id.nil? and current_parent.id != new_value
-                  current_parent.public_send(
-                    "#{current_parent.child_nodes_map.key(self.class)}=", nil
-                  )
-
-                  instance_variable_set(:"@#{parent_scope_name}", nil)
-                end
+                handle_current_parent_change(parent_node_name, new_value)
               end
 
-              define_parent_scope_writer(
-                parent_scope_name, parent_scope_klass, foreign_key_field
+              define_parent_node_writer(
+                parent_node_name, parent_node_klass, foreign_key_field
               )
 
-              define_parent_scope_reader(
-                parent_scope_name, parent_scope_klass, foreign_key_field
+              define_parent_node_reader(
+                parent_node_name, parent_node_klass, foreign_key_field
               )
             end
           end
 
-          def define_parent_scope_writer(name, parent_scope_klass, foreign_key_field)
+          def define_parent_node_writer(name, parent_node_klass, foreign_key_field)
             define_method("#{name}=") do |parent_object|
-              check_object_type_based_on(parent_scope_klass, name, parent_object)
+              check_object_type_based_on(parent_node_klass, name, parent_object)
               instance_variable_set("@#{name}", parent_object)
               public_send("#{foreign_key_field}=", parent_object&.id)
             end
           end
 
-          def define_parent_scope_reader(name, parent_scope_klass, foreign_key_field)
+          def define_parent_node_reader(name, parent_node_klass, foreign_key_field)
             define_method("#{name}") do
               if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{name}").nil?
                 parent = DocumentManager.new.find(
-                  parent_scope_klass, instance_variable_get("@#{foreign_key_field}")
+                  parent_node_klass, instance_variable_get("@#{foreign_key_field}")
                 )
 
                 instance_variable_set("@#{name}", parent)
@@ -292,7 +284,7 @@ module Persisty
             end
           end
 
-          def define_single_child_scope_reader(child_name, child_klass, child_set_parent_node)
+          def define_single_child_node_reader(child_name, child_klass, child_set_parent_node)
             define_method("#{child_name}") do
               if instance_variable_get("@#{child_name}").nil?
                 child_obj = DocumentManager.new.find_all(
@@ -306,7 +298,7 @@ module Persisty
             end
           end
 
-          def define_single_child_scope_writer(child_name, child_klass, child_set_parent_node)
+          def define_single_child_node_writer(child_name, child_klass, child_set_parent_node)
             define_method("#{child_name}=") do |child_obj|
               check_object_type_based_on(child_klass, child_name, child_obj)
               previous_child = instance_variable_get("@#{child_name}")
@@ -322,15 +314,27 @@ module Persisty
 
         private
 
-        def check_object_type_based_on(scope_klass, scope_name, object)
-          return if object.nil? or object.is_a? scope_klass
-          raise TypeError, "Object is a type mismatch from defined scope '#{scope_name}'"
+        def check_object_type_based_on(node_klass, node_name, object)
+          return if object.nil? or object.is_a? node_klass
+          raise TypeError, "Object is a type mismatch from defined node '#{node_name}'"
         end
 
         def handle_previous_child_removal(previous_child, parent_node_name)
           return unless previous_child and previous_child.public_send(parent_node_name) == self
           previous_child.public_send("#{parent_node_name}=", nil)
           DocumentManager.new.remove(previous_child)
+        end
+
+        def handle_current_parent_change(parent_node_name, new_parent_id)
+          return unless (current_parent = instance_variable_get(:"@#{parent_node_name}"))
+
+          if current_parent.id and current_parent.id != new_parent_id
+            current_parent.public_send(
+              "#{current_parent.child_nodes_map.key(self.class)}=", nil
+            )
+
+            instance_variable_set(:"@#{parent_node_name}", nil)
+          end
         end
 
         def initialize_fields_with(attributes)
