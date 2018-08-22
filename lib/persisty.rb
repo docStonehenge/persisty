@@ -33,6 +33,7 @@ module Persisty
   require 'persisty/persistence/entities/field'
   require 'persisty/persistence/entities/comparison_error'
   require 'persisty/persistence/document_definitions/base'
+  require 'persisty/persistence/document_definitions/errors/no_parent_node_error'
 
   require 'persisty/associations/document_collection'
 

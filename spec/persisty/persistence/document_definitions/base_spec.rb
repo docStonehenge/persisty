@@ -47,13 +47,13 @@ module Persisty
                   expect(@subject).to respond_to(:stub_entity=)
                 end
 
-                it "raises ArgumentError when child node class doesn't have parent foreign keys field" do
+                it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
                   allow(StubEntity).to receive(:parent_nodes_map).and_return({})
 
                   expect {
                     described_class.child_node :stub_entity
                   }.to raise_error(
-                         ArgumentError,
+                         Errors::NoParentNodeError,
                          "Child node class must have a foreign_key field set for parent. "\
                          "Use '.parent_node' method on child class to set correct parent_node relation."
                        )
@@ -226,13 +226,13 @@ module Persisty
                   expect(subject).to respond_to(:foo=)
                 end
 
-                it "raises ArgumentError when child node class doesn't have parent foreign keys field" do
+                it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
                   allow(StubEntity).to receive(:parent_nodes_map).and_return({})
 
                   expect {
                     described_class.child_node :foo, class_name: ::StubEntity
                   }.to raise_error(
-                         ArgumentError,
+                         Errors::NoParentNodeError,
                          "Child node class must have a foreign_key field set for parent. "\
                          "Use '.parent_node' method on child class to set correct parent_node relation."
                        )
@@ -805,6 +805,24 @@ module Persisty
                                           dob: { type: Date },
                                           stub_entity_id: { type: BSON::ObjectId }
                                         )
+            end
+          end
+
+          describe '#foreign_key_writer_for klass' do
+            it 'returns correct writer for klass argument' do
+              expect(
+                subject.foreign_key_writer_for(StubEntity)
+              ).to eql :stub_entity_id=
+            end
+
+            it 'raises NoParentNodeError when no foreign key is set for klass' do
+              expect {
+                subject.foreign_key_writer_for(TestClass)
+              }.to raise_error(
+                     Errors::NoParentNodeError,
+                     "Child node class must have a foreign_key field set for parent. "\
+                     "Use '.parent_node' method on child class to set correct parent_node relation."
+                   )
             end
           end
 

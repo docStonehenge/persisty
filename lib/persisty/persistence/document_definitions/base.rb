@@ -117,6 +117,12 @@ module Persisty
           self.class.fields
         end
 
+        def foreign_key_writer_for(klass)
+          parent_node = self.class.parent_nodes_map.key(klass)
+          raise Errors::NoParentNodeError unless parent_node
+          :"#{parent_node}_id="
+        end
+
         def parent_nodes_list
           self.class.parent_nodes_list
         end
@@ -211,9 +217,7 @@ module Persisty
 
           def parent_node_on(child_klass)
             unless (node_name = child_klass.parent_nodes_map.key(self))
-              raise ArgumentError,
-                    "Child node class must have a foreign_key field set for parent. "\
-                    "Use '.parent_node' method on child class to set correct parent_node relation."
+              raise Errors::NoParentNodeError
             end
 
             node_name
