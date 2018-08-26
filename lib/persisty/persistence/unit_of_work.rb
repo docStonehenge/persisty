@@ -47,15 +47,16 @@ module Persisty
       end
 
       def commit
-        new_entities.each do |entity|
-          Repositories::Registry[entity.class].insert(entity)
+        process_all_from new_entities, :insert do |entity|
           new_entities.delete entity
           track_clean entity
         end
 
-        process_all_from changed_entities, :update
-        process_all_from removed_entities, :delete
+        process_all_from changed_entities, :update do |entity|
+          dirty_tracking.refresh_changes_on entity
+        end
 
+        process_all_from removed_entities, :delete
         true
       ensure
         Repositories::Registry.new_repositories
@@ -158,6 +159,7 @@ module Persisty
       def process_all_from(list, process_name) # :nodoc:
         list.each do |entity|
           Repositories::Registry[entity.class].public_send(process_name, entity)
+          yield entity if block_given?
         end
       end
 

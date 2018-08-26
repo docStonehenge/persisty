@@ -218,6 +218,56 @@ module Persisty
           end
         end
 
+        describe '#refresh_changes_on entity' do
+          context 'when entity has changes on attributes' do
+            it 'removes previous values on each attribute array' do
+              entity = ::DirtyTrackedEntity.new(id: id, wage: 500.0)
+
+              subject.add(entity)
+
+              entity.first_name = 'Fooza'
+              entity.age  = 30
+              entity.wage = 1_000_000
+
+              subject.register_changes_on(entity)
+              subject.refresh_changes_on(entity)
+
+              expect(
+                subject.entities.dig("dirtytrackedentity>>#{id}")
+              ).to eql(first_name: ['Fooza'], age: [30], wage: [BigDecimal.new('1_000_000')])
+            end
+          end
+
+          context 'when entity has attributes without changes' do
+            it 'removes previous values only from attributes with changes' do
+              entity = ::DirtyTrackedEntity.new(id: id, wage: 500.0)
+
+              subject.add(entity)
+
+              entity.first_name = 'Fooza'
+
+              subject.register_changes_on(entity)
+              subject.refresh_changes_on(entity)
+
+              expect(
+                subject.entities.dig("dirtytrackedentity>>#{id}")
+              ).to eql(first_name: ['Fooza'], age: [nil], wage: [BigDecimal.new('500')])
+            end
+          end
+
+          it "halts execution when tracking isn't found on map" do
+            entity = ::DirtyTrackedEntity.new(id: id, wage: 500.0)
+
+            track = subject.entities.dig("dirtytrackedentity>>#{id}")
+            expect(subject.entities.dig("dirtytrackedentity>>#{id}")).to be_nil
+
+            entity.first_name = 'Fooza'
+            subject.refresh_changes_on(entity)
+
+            expect(subject.entities.dig("dirtytrackedentity>>#{id}")).to eql track
+          end
+        end
+
         describe '#changes_on entity' do
           it 'returns a hash with all attributes that changed, including previous and new value' do
             entity = ::DirtyTrackedEntity.new(id: id, wage: 500.0)

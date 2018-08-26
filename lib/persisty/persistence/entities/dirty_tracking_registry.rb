@@ -38,12 +38,21 @@ module Persisty
           end
         end
 
+        # Checks if attributes mapped have changes and removes previous value on
+        # each attribute. It only removes previous value if attribute is mapped
+        # to an array with old and new values. Used internally by the UnitOfWork
+        # after a successful update on <tt>entity</tt>.
+        def refresh_changes_on(entity)
+          entities[key_for(entity)]&.each do |_, value_array|
+            next unless value_array.size == 2
+            value_array.delete_at(0)
+          end
+        end
+
         # Returns hash of attributes on entity that have been changed, excluding
         # any attributes that haven't been mapped as changed.
         def changes_on(entity)
-          get(
-            entity.class, entity.id
-          )&.reject { |_, value_array| value_array[1].nil? }
+          entities[key_for(entity)]&.reject { |_, value_array| value_array[1].nil? }
         end
 
         private

@@ -136,6 +136,7 @@ module Persisty
             ).to receive(:[]).once.with(entity_to_update.class).and_return repository
 
             expect(repository).to receive(:update).once.with(entity_to_update)
+            expect(dirty_tracking).to receive(:refresh_changes_on).once.with(entity_to_update)
 
             expect(
               Repositories::Registry
@@ -167,6 +168,8 @@ module Persisty
             expect(repository).to receive(:update).once.with(
                                     entity_to_update
                                   ).and_raise(RuntimeError, 'Error')
+
+            expect(dirty_tracking).not_to receive(:refresh_changes_on).with(any_args)
 
             expect(
               Repositories::Registry
