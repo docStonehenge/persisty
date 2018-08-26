@@ -48,7 +48,7 @@ module Persisty
                                           '_id' => '123'
                                         ).and_return entity
 
-            expect(uow).to receive(:register_clean).once.with(entity).and_return entity
+            expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
             expect(subject.find('123')).to eql entity
           end
@@ -120,7 +120,7 @@ module Persisty
                                             '_id' => 1
                                           ).and_return entity
 
-              expect(uow).to receive(:register_clean).once.with(entity).and_return entity
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
               expect(
                 subject.find_all(filter: { period: Date.parse('January/2016') })
@@ -152,8 +152,8 @@ module Persisty
                                             { '_id' => 2 }
                                           ).and_return entity2
 
-              expect(uow).to receive(:register_clean).once.with(entity).and_return entity
-              expect(uow).to receive(:register_clean).once.with(entity2).and_return entity2
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
+              expect(uow).to receive(:track_clean).once.with(entity2).and_return entity2
 
               expect(subject.find_all).to eql [entity, entity2]
             end
@@ -183,8 +183,8 @@ module Persisty
                                             { '_id' => 1 }
                                           ).and_return entity
 
-              expect(uow).to receive(:register_clean).once.with(entity2).and_return entity2
-              expect(uow).to receive(:register_clean).once.with(entity).and_return entity
+              expect(uow).to receive(:track_clean).once.with(entity2).and_return entity2
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
               expect(subject.find_all(sorted_by: { period: 1 })).to eql [entity2, entity]
             end
@@ -229,7 +229,7 @@ module Persisty
                                             { '_id' => 125 }
                                           ).and_return entity
 
-              expect(uow).to receive(:register_clean).once.with(entity).and_return entity
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
               expect(
                 subject.find_all(filter: { period: Date.parse('January/2016') })
@@ -258,7 +258,7 @@ module Persisty
                                             { '_id' => 125 }
                                           ).and_return entity
 
-              expect(uow).to receive(:register_clean).once.with(entity).and_return entity
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
               expect(subject.find_all).to eql [@loaded_entity, entity]
             end
@@ -285,7 +285,7 @@ module Persisty
                                             { '_id' => 125 }
                                           ).and_return entity
 
-              expect(uow).to receive(:register_clean).once.with(entity).and_return entity
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
               expect(subject.find_all(sorted_by: { period: 1 })).to eql [@loaded_entity, entity]
             end

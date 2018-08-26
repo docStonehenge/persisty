@@ -78,7 +78,7 @@ module Persisty
 
         entry = yield
 
-        Persistence::UnitOfWork.current.register_clean(@entity_klass.new(entry))
+        Persistence::UnitOfWork.current.track_clean(@entity_klass.new(entry))
       end
 
       def validate_entity_class(entity) # :nodoc:

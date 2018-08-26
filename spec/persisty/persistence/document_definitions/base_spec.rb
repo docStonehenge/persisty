@@ -738,11 +738,11 @@ module Persisty
 
                   it 'defines reader, writer, converting field and registering object into UnitOfWork' do
                     expect {
-                      @subject.name = 'New name'
-
                       expect(
-                        Persistence::UnitOfWork.current.managed?(@subject)
-                      ).to be true
+                        Persistence::UnitOfWork.current
+                      ).to receive(:register_changed).once.with(@subject)
+
+                      @subject.name = 'New name'
                     }.to change(@subject, :name).to('New name')
                   end
                 end
@@ -757,11 +757,11 @@ module Persisty
 
                   it 'defines reader and writer for field; writer does not register on UnitOfWork' do
                     expect {
-                      @subject.name = 'New name'
-
                       expect(
-                        Persistence::UnitOfWork.current.managed?(@subject)
-                      ).to be false
+                        Persistence::UnitOfWork.current
+                      ).not_to receive(:register_changed).with(any_args)
+
+                      @subject.name = 'New name'
                     }.not_to change(@subject, :name)
                   end
                 end

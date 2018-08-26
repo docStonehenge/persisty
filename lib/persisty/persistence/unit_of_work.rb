@@ -6,10 +6,10 @@ module Persisty
       # initializes a UnitOfWork with a new Entities::Registry.
       def self.new_current
         self.current = new(
-          begin
-            current.clean_entities
+          *begin
+            [current.clean_entities, current.dirty_tracking]
           rescue UnitOfWorkNotStartedError
-            Entities::Registry.new
+            [Entities::Registry.new, Entities::DirtyTrackingRegistry.new]
           end
         )
       end
@@ -27,11 +27,14 @@ module Persisty
         end
       end
 
-      attr_reader :clean_entities, :new_entities, :changed_entities, :removed_entities
+      attr_reader :clean_entities, :dirty_tracking, :new_entities,
+                  :changed_entities, :removed_entities
 
-      # Initializes an instance with three new Set objects and an Entities::Registry
-      def initialize(entity_registry)
+      # Initializes an instance with three new Set objects, an Entities::Registry
+      # instance and an Entities::DirtyTrackingRegistry instance
+      def initialize(entity_registry, dirty_tracking)
         @clean_entities   = entity_registry
+        @dirty_tracking   = dirty_tracking
         @new_entities     = Set.new
         @changed_entities = Set.new
         @removed_entities = Set.new
@@ -44,7 +47,12 @@ module Persisty
       end
 
       def commit
-        process_all_from new_entities,     :insert
+        new_entities.each do |entity|
+          Repositories::Registry[entity.class].insert(entity)
+          new_entities.delete entity
+          track_clean entity
+        end
+
         process_all_from changed_entities, :update
         process_all_from removed_entities, :delete
 
@@ -82,6 +90,11 @@ module Persisty
         !present_on_lists? entity, registration_lists
       end
 
+      def track_clean(entity)
+        register_on(dirty_tracking, entity, ignore: registration_lists[3...4])
+        register_clean(entity)
+      end
+
       # Registers <tt>entity</tt> on clean entities map, avoiding duplicates.
       # Ingores entities without IDs, calls registration even if present on other lists.
       # Returns the +entity+ added or +nil+ if entity has no ID or it's a duplicate.
@@ -91,7 +104,7 @@ module Persisty
       #   register_clean(Foo.new(id: 123))
       #   # => <Foo:0x007f8b1a9028b8 @id=123, @amount=nil, @period=nil>
       def register_clean(entity)
-        register_on(clean_entities, entity, ignore: registration_lists[1..3])
+        register_on(clean_entities, entity, ignore: registration_lists[1..4])
       end
 
       # Registers <tt>entity</tt> on new entities list and on clean entities, avoiding duplicates.
@@ -116,7 +129,8 @@ module Persisty
       #   register_changed(Foo.new(id: 123))
       #   # => #<Set: {#<Foo:0x007f8b1a9028b8 @id=123, @amount=nil, @period=nil>}>
       def register_changed(entity)
-        register_on changed_entities, entity
+        return unless register_as_changed?(entity)
+        changed_entities.add entity
       end
 
       # Tries to remove <tt>entity</tt> from <tt>changed_entities</tt>, registers it
@@ -131,6 +145,7 @@ module Persisty
       #   # => #<Set: {#<Foo:0x007f8b1a9028b8 @id=123, @amount=nil, @period=nil>}>
       def register_removed(entity)
         changed_entities.delete entity
+        dirty_tracking.delete   entity
         clean_entities.delete   entity
 
         return if new_entities.delete? entity
@@ -147,7 +162,10 @@ module Persisty
       end
 
       def registration_lists # :nodoc:
-        [clean_entities, new_entities, changed_entities, removed_entities]
+        [
+          clean_entities, dirty_tracking, new_entities,
+          changed_entities, removed_entities
+        ]
       end
 
       def present_on_lists?(entity, lists_to_compare) # :nodoc:
@@ -162,7 +180,13 @@ module Persisty
       end
 
       def present_on_persistent_lists?(entity, lists_to_ignore) # :nodoc:
-        present_on_lists?(entity, (registration_lists[1..3] - lists_to_ignore))
+        present_on_lists?(entity, (registration_lists[1..4] - lists_to_ignore))
+      end
+
+      def register_as_changed?(entity)
+        entity.id.present? and
+          dirty_tracking.include?(entity) and
+          !present_on_persistent_lists?(entity, registration_lists.values_at(1, 3))
       end
     end
   end
