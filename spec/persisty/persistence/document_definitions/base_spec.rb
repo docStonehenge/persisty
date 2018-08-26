@@ -808,16 +808,15 @@ module Persisty
             end
           end
 
-          describe '#foreign_key_writer_for klass' do
-            it 'returns correct writer for klass argument' do
-              expect(
-                subject.foreign_key_writer_for(StubEntity)
-              ).to eql :stub_entity_id=
+          describe '#set_foreign_key_for klass, foreign_key' do
+            it 'calls correct writer for klass, assigning foreign_key' do
+              expect(subject).to receive(:stub_entity_id=).once.with(123)
+              subject.set_foreign_key_for(StubEntity, 123)
             end
 
             it 'raises NoParentNodeError when no foreign key is set for klass' do
               expect {
-                subject.foreign_key_writer_for(TestClass)
+                subject.set_foreign_key_for(TestClass, 123)
               }.to raise_error(
                      Errors::NoParentNodeError,
                      "Child node class must have a foreign_key field set for parent. "\

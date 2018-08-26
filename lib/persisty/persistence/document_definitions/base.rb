@@ -117,10 +117,10 @@ module Persisty
           self.class.fields
         end
 
-        def foreign_key_writer_for(klass)
+        def set_foreign_key_for(klass, foreign_key)
           parent_node = self.class.parent_nodes_map.key(klass)
           raise Errors::NoParentNodeError unless parent_node
-          :"#{parent_node}_id="
+          public_send("#{parent_node}_id=", foreign_key)
         end
 
         def parent_nodes_list
