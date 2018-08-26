@@ -30,6 +30,7 @@ module Persisty
   require 'persisty/persistence/unit_of_work_not_started_error'
   require 'persisty/persistence/unit_of_work'
   require 'persisty/persistence/entities/registry'
+  require 'persisty/persistence/entities/dirty_tracking_registry'
   require 'persisty/persistence/entities/field'
   require 'persisty/persistence/entities/comparison_error'
   require 'persisty/persistence/document_definitions/base'
