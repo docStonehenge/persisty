@@ -278,6 +278,29 @@ describe 'DocumentManager integration tests', db_integration: true do
       entity.first_name = 'John'
 
       expect(uow.managed?(entity)).to be true
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.changes_on(entity)
+      ).to include(first_name: [nil, 'John'])
+    end
+
+    it "doesn't mark entity as changed when value didn't change" do
+      other_entity = ::StubEntity.new(first_name: 'John')
+
+      dm.persist other_entity
+      dm.commit
+
+      other_entity.first_name = 'John'
+
+      expect(uow.managed?(entity)).to be true
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.changes_on(entity)
+      ).to be_empty
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.changed_entities
+      ).not_to include other_entity
     end
 
     it 'correctly updates name on database' do

@@ -736,7 +736,7 @@ module Persisty
                     expect(@subject).to respond_to(:name=)
                   end
 
-                  it 'defines reader, writer, converting field and registering object into UnitOfWork' do
+                  it 'defines reader, writer, converting field, registers object into UnitOfWork' do
                     expect {
                       expect(
                         Persistence::UnitOfWork.current
@@ -755,11 +755,11 @@ module Persisty
                     expect(@subject).to respond_to(:name=)
                   end
 
-                  it 'defines reader and writer for field; writer does not register on UnitOfWork' do
+                  it 'defines reader and writer for field; but still calls UnitOfWork to handle entity' do
                     expect {
                       expect(
                         Persistence::UnitOfWork.current
-                      ).not_to receive(:register_changed).with(any_args)
+                      ).to receive(:register_changed).once.with(@subject)
 
                       @subject.name = 'New name'
                     }.not_to change(@subject, :name)

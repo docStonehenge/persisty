@@ -237,8 +237,9 @@ module Persisty
             instance_eval do
               define_method("#{attribute}=") do |value|
                 new_value = Entities::Field.new(type: type, value: value).coerce
-                handle_registration_for_changes_on attribute, new_value
-                instance_variable_set(:"@#{attribute}", new_value)
+                handle_registration_for_changes_on attribute do
+                  instance_variable_set(:"@#{attribute}", new_value)
+                end
               end
             end
           end
@@ -250,8 +251,10 @@ module Persisty
 
                 return if instance_variable_get(:"@#{foreign_key_field}") == new_value
 
-                handle_registration_for_changes_on foreign_key_field, new_value
-                instance_variable_set(:"@#{foreign_key_field}", new_value)
+                handle_registration_for_changes_on foreign_key_field do
+                  instance_variable_set(:"@#{foreign_key_field}", new_value)
+                end
+
                 handle_current_parent_change(parent_node_name, new_value)
               end
 
@@ -358,14 +361,16 @@ module Persisty
           end.each { |node, value| public_send("#{node}=", value) }
         end
 
-        def handle_registration_for_changes_on(attribute, value) # :nodoc:
+        def handle_registration_for_changes_on(attribute) # :nodoc:
           if attribute == :id and !Persistence::UnitOfWork.current.detached? self
             raise ArgumentError,
                   'Cannot change ID from an entity that is still on current UnitOfWork'
-          elsif instance_variable_get(:"@#{attribute}") != value
-            Persistence::UnitOfWork.current.register_changed(self)
           end
+
+          yield
+          Persistence::UnitOfWork.current.register_changed(self)
         rescue Persistence::UnitOfWorkNotStartedError
+          yield
         end
       end
     end

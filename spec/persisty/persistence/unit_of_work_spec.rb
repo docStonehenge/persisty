@@ -96,10 +96,9 @@ module Persisty
       let(:new_entities) { subject.new_entities }
       let(:changed_entities) { subject.changed_entities }
       let(:removed_entities) { subject.removed_entities }
+      let(:entity) { ::StubEntity.new(id: BSON::ObjectId.new) }
 
       describe '#get entity_class, entity_id' do
-        let(:entity) { ::StubEntity.new(id: BSON::ObjectId.new) }
-
         it 'returns the entity set on clean entities list' do
           clean_entities.add(entity)
           expect(subject.get entity.class, entity.id).to equal entity
@@ -107,6 +106,26 @@ module Persisty
 
         it 'returns nil if no entity was found' do
           expect(subject.get entity.class, entity.id).to be_nil
+        end
+      end
+
+      describe '#register_changes_on entity' do
+        it 'calls changes registration on dirty tracking for entity' do
+          expect(
+            dirty_tracking
+          ).to receive(:register_changes_on).once.with(entity)
+
+          subject.register_changes_on entity
+        end
+      end
+
+      describe '#changes_on entity' do
+        it 'returns all changes for entity registered on dirty_tracking' do
+          expect(
+            dirty_tracking
+          ).to receive(:changes_on).once.with(entity).and_return(first_name: [nil, 'John'])
+
+          expect(subject.changes_on(entity)).to eql(first_name: [nil, 'John'])
         end
       end
 
@@ -119,6 +138,11 @@ module Persisty
         before do
           subject.register_new(entity_to_save)
           subject.track_clean(entity_to_update)
+
+          allow(
+            dirty_tracking
+          ).to receive(:changes_on).once.with(entity_to_update).and_return(first_name: [nil, 'John'])
+
           subject.register_changed(entity_to_update)
           subject.register_removed(entity_to_delete)
         end
@@ -217,7 +241,13 @@ module Persisty
         context 'when present on clean_entities, dirty_tracking changed_entities' do
           it 'deletes entity from clean_entities, dirty_tracking and changed_entities' do
             subject.track_clean(entity)
+
+            allow(
+              dirty_tracking
+            ).to receive(:changes_on).with(entity).and_return(first_name: [nil, 'John'])
+
             subject.register_changed(entity)
+
             expect(subject.clean_entities).to include entity
             expect(subject.changed_entities).to include entity
 
@@ -483,16 +513,50 @@ module Persisty
         let(:entity) { ::StubEntity.new(id: BSON::ObjectId.new) }
 
         context "when changed_entities list doesn't contain entity yet" do
-          it 'adds entity to changed_entities list' do
+          before do
             subject.track_clean(entity)
-            subject.register_changed(entity)
-            expect(changed_entities.first).to equal entity
+          end
+
+          context 'when entity has changes' do
+            before do
+              allow(
+                dirty_tracking
+              ).to receive(:changes_on).with(entity).and_return(first_name: [nil, 'John'])
+            end
+
+            it 'adds entity to changed_entities list after registering changes' do
+              expect(subject).to receive(:register_changes_on).once.with(entity)
+
+              subject.register_changed(entity)
+              expect(changed_entities.first).to equal entity
+            end
+          end
+
+          context "when entity doesn't have changes" do
+            before do
+              allow(
+                dirty_tracking
+              ).to receive(:changes_on).with(entity).and_return({})
+            end
+
+            it "doesn't add to changed_entities" do
+              expect(subject).to receive(:register_changes_on).once.with(entity)
+
+              subject.register_changed(entity)
+              expect(changed_entities).not_to include entity
+            end
           end
         end
 
         context 'when changed_entities already contains entity' do
           it "doesn't add same object twice" do
             subject.track_clean(entity)
+
+            expect(subject).to receive(:register_changes_on).twice.with(entity)
+
+            allow(
+              dirty_tracking
+            ).to receive(:changes_on).with(entity).and_return(first_name: [nil, 'John'])
 
             subject.register_changed(entity)
             subject.register_changed(entity)
@@ -505,7 +569,10 @@ module Persisty
           let(:not_persisted_entity) { double(:entity, id: nil) }
 
           it "doesn't add to changed_entities list" do
+            expect(subject).not_to receive(:register_changes_on).with(any_args)
+
             subject.register_changed(not_persisted_entity)
+
             expect(changed_entities).not_to include not_persisted_entity
           end
         end
@@ -513,6 +580,9 @@ module Persisty
         context 'when entity is present in another list' do
           it "doesn't add to changed_entities list when present on new_entities" do
             subject.register_new(entity)
+
+            expect(subject).not_to receive(:register_changes_on).with(any_args)
+
             subject.register_changed(entity)
 
             expect(changed_entities).not_to include entity
@@ -520,6 +590,9 @@ module Persisty
 
           it "doesn't add to changed_entities list when present on removed_entities" do
             subject.register_removed(entity)
+
+            expect(subject).not_to receive(:register_changes_on).with(any_args)
+
             subject.register_changed(entity)
 
             expect(changed_entities).not_to include entity
@@ -527,6 +600,9 @@ module Persisty
 
           it "doesn't add to changed_entities when not present on dirty_tracking" do
             subject.register_clean(entity)
+
+            expect(subject).not_to receive(:register_changes_on).with(any_args)
+
             subject.register_changed(entity)
 
             expect(changed_entities).not_to include entity
@@ -583,6 +659,11 @@ module Persisty
 
           it "removes from dirty tracking and changed_entities before setting on removed_entities" do
             subject.track_clean(entity)
+
+            allow(
+              dirty_tracking
+            ).to receive(:changes_on).with(entity).and_return(first_name: [nil, 'John'])
+
             subject.register_changed(entity)
             expect(changed_entities).to include entity
             expect(dirty_tracking).to include entity
