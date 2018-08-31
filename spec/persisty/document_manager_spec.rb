@@ -215,8 +215,39 @@ module Persisty
 
     describe '#remove entity' do
       it 'calls removed registration of entity on Persistence::UnitOfWork' do
+        expect(entity).to receive(:child_nodes_list).and_return []
         expect(unit_of_work).to receive(:register_removed).once.with(entity)
         subject.remove entity
+      end
+
+      context 'handling single child nodes on entity' do
+        let(:child_one) { double(:child_one) }
+        let(:child_two) { double(:child_two) }
+
+        before do
+          expect(entity).to receive(:child_nodes_list).and_return [:child_one, :child_two]
+        end
+
+        it 'registers all childs and parent to be removed' do
+          expect(entity).to receive(:child_one).once.and_return child_one
+          expect(entity).to receive(:child_two).once.and_return child_two
+
+          expect(unit_of_work).to receive(:register_removed).once.with(entity)
+          expect(unit_of_work).to receive(:register_removed).once.with(child_one)
+          expect(unit_of_work).to receive(:register_removed).once.with(child_two)
+
+          subject.remove entity
+        end
+
+        it 'registers child to be removed skipping any nil childs' do
+          expect(entity).to receive(:child_one).once.and_return child_one
+          expect(entity).to receive(:child_two).once.and_return nil
+
+          expect(unit_of_work).to receive(:register_removed).once.with(entity)
+          expect(unit_of_work).to receive(:register_removed).once.with(child_one)
+
+          subject.remove entity
+        end
       end
     end
 

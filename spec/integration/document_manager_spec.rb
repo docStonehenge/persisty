@@ -265,6 +265,103 @@ describe 'DocumentManager integration tests', db_integration: true do
       entity._id = new_id
 
       expect(entity.id).to eql new_id
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.managed?(entity)
+      ).to be false
+    end
+
+    context 'handling single child nodes removal' do
+      include_context 'parent node and childs environment'
+
+      it 'removes parent and all childs' do
+        parent.first_child = child_one
+        parent.child_two = child_two
+
+        dm.persist(parent)
+        dm.commit
+
+        dm.remove(parent)
+        expect(uow.removed_entities).to include parent, child_one, child_two
+
+        dm.commit
+
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(parent)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_one)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_two)).to be true
+
+        expect {
+          dm.find(parent.class, parent.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_one.class, child_one.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_two.class, child_two.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+      end
+
+      it 'removes parent and only single child associated' do
+        dm.persist(parent)
+        dm.commit
+
+        child_one.parent = parent
+        dm.persist(child_one)
+        dm.commit
+
+        expect(parent.first_child).to equal child_one
+        expect(child_one.parent).to equal parent
+        expect(child_one.parent_id).to eql parent.id
+        expect(parent.child_two).to be_nil
+
+        dm.remove(parent)
+
+        expect(uow.removed_entities).to include parent, child_one
+
+        dm.commit
+
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(parent)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_one)).to be true
+
+        expect {
+          dm.find(parent.class, parent.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_one.class, child_one.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+      end
+
+      it "doesn't move backwards from child to remove parent" do
+        parent.first_child = child_one
+        parent.child_two = child_two
+
+        dm.persist(parent)
+        dm.commit
+
+        dm.remove(child_one)
+        dm.remove(child_two)
+        expect(uow.removed_entities).to include child_one, child_two
+        expect(uow.removed_entities).not_to include parent
+
+        dm.commit
+
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(parent)).to be false
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_one)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_two)).to be true
+
+        expect(dm.find(parent.class, parent.id)).to equal parent
+
+        expect {
+          dm.find(child_one.class, child_one.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_two.class, child_two.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+      end
     end
   end
 
