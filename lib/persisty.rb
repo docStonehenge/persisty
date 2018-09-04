@@ -15,6 +15,11 @@ module Persisty
   require 'persisty/extensions/big_decimal'
   require 'persisty/extensions/bson_object_id'
 
+  require 'persisty/string_modifiers/pluralizer'
+  require 'persisty/string_modifiers/singularizer'
+  require 'persisty/string_modifiers/camelizer'
+  require 'persisty/string_modifiers/underscorer'
+
   require 'persisty/databases/connection_properties_error'
   require 'persisty/databases/operation_error'
   require 'persisty/databases/connection_error'
@@ -25,9 +30,13 @@ module Persisty
   require 'persisty/persistence/unit_of_work_not_started_error'
   require 'persisty/persistence/unit_of_work'
   require 'persisty/persistence/entities/registry'
+  require 'persisty/persistence/entities/dirty_tracking_registry'
   require 'persisty/persistence/entities/field'
   require 'persisty/persistence/entities/comparison_error'
   require 'persisty/persistence/document_definitions/base'
+  require 'persisty/persistence/document_definitions/errors/no_parent_node_error'
+
+  require 'persisty/associations/document_collection'
 
   require 'persisty/repositories/operation_error'
   require 'persisty/repositories/insertion_error'

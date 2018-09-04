@@ -2,8 +2,9 @@ describe 'Persistence::UnitOfWork integration tests', db_integration: true do
   include_context 'StubEntity'
 
   let(:entity_registry) { Persisty::Persistence::Entities::Registry.new }
+  let(:dirty_tracking) { Persisty::Persistence::Entities::DirtyTrackingRegistry.new }
 
-  subject { Persisty::Persistence::UnitOfWork.new(entity_registry) }
+  subject { Persisty::Persistence::UnitOfWork.new(entity_registry, dirty_tracking) }
 
   before do
     Thread.current.thread_variable_set(:current_uow, nil)
@@ -36,23 +37,30 @@ describe 'Persistence::UnitOfWork integration tests', db_integration: true do
 
     expect(Persisty::Persistence::UnitOfWork.current).to equal new_uow
     expect(new_uow.clean_entities).to equal entity_registry
+    expect(new_uow.dirty_tracking).to equal dirty_tracking
   end
 
-  it 'uses new entity registry on new UnitOfWork when no current_uow is set' do
+  it 'uses new entity registry and dirty tracking on new UnitOfWork when no current_uow is set' do
     expect {
       Persisty::Persistence::UnitOfWork.current
     }.to raise_error(Persisty::Persistence::UnitOfWorkNotStartedError)
 
     new_registry = double(:entity_registry)
+    new_track    = double(:dirty_tracking)
 
     expect(
       Persisty::Persistence::Entities::Registry
     ).to receive(:new).once.and_return new_registry
 
+    expect(
+      Persisty::Persistence::Entities::DirtyTrackingRegistry
+    ).to receive(:new).once.and_return new_track
+
     new_uow = Persisty::Persistence::UnitOfWork.new_current
 
     expect(Persisty::Persistence::UnitOfWork.current).to equal new_uow
     expect(new_uow.clean_entities).to equal new_registry
+    expect(new_uow.dirty_tracking).to equal new_track
   end
 
   context 'getting entity registered as clean' do

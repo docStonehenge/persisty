@@ -1,15 +1,17 @@
 module Persisty
   module Persistence
     class UnitOfWork
+      extend Forwardable
+
       # Sets a new instance of UnitOfWork as <tt>current_uow</tt> on running thread.
       # If a current UnitOfWork is present, uses entity registry set on it; if not,
       # initializes a UnitOfWork with a new Entities::Registry.
       def self.new_current
         self.current = new(
-          begin
-            current.clean_entities
+          *begin
+            [current.clean_entities, current.dirty_tracking]
           rescue UnitOfWorkNotStartedError
-            Entities::Registry.new
+            [Entities::Registry.new, Entities::DirtyTrackingRegistry.new]
           end
         )
       end
@@ -27,27 +29,33 @@ module Persisty
         end
       end
 
-      attr_reader :clean_entities, :new_entities, :changed_entities, :removed_entities
+      attr_reader :clean_entities, :dirty_tracking, :new_entities,
+                  :changed_entities, :removed_entities
 
-      # Initializes an instance with three new Set objects and an Entities::Registry
-      def initialize(entity_registry)
+      def_delegator  :@clean_entities, :get
+      def_delegators :@dirty_tracking, :register_changes_on, :refresh_changes_on, :changes_on
+
+      # Initializes an instance with three new Set objects, an Entities::Registry
+      # instance and an Entities::DirtyTrackingRegistry instance
+      def initialize(entity_registry, dirty_tracking)
         @clean_entities   = entity_registry
+        @dirty_tracking   = dirty_tracking
         @new_entities     = Set.new
         @changed_entities = Set.new
         @removed_entities = Set.new
       end
 
-      # Returns +entity+ found by <tt>entity_class</tt> and <tt>entity_id</tt>
-      # on <tt>clean_entities</tt> list or nil if no entity is found.
-      def get(entity_class, entity_id)
-        clean_entities.get(entity_class, entity_id)
-      end
-
       def commit
-        process_all_from new_entities,     :insert
-        process_all_from changed_entities, :update
-        process_all_from removed_entities, :delete
+        process_all_from new_entities, :insert do |entity|
+          new_entities.delete entity
+          track_clean entity
+        end
 
+        process_all_from changed_entities, :update do |entity|
+          refresh_changes_on entity
+        end
+
+        process_all_from removed_entities, :delete
         true
       ensure
         Repositories::Registry.new_repositories
@@ -82,6 +90,11 @@ module Persisty
         !present_on_lists? entity, registration_lists
       end
 
+      def track_clean(entity)
+        register_on(dirty_tracking, entity, ignore: registration_lists[3...4])
+        register_clean(entity)
+      end
+
       # Registers <tt>entity</tt> on clean entities map, avoiding duplicates.
       # Ingores entities without IDs, calls registration even if present on other lists.
       # Returns the +entity+ added or +nil+ if entity has no ID or it's a duplicate.
@@ -91,7 +104,7 @@ module Persisty
       #   register_clean(Foo.new(id: 123))
       #   # => <Foo:0x007f8b1a9028b8 @id=123, @amount=nil, @period=nil>
       def register_clean(entity)
-        register_on(clean_entities, entity, ignore: registration_lists[1..3])
+        register_on(clean_entities, entity, ignore: registration_lists[1..4])
       end
 
       # Registers <tt>entity</tt> on new entities list and on clean entities, avoiding duplicates.
@@ -108,6 +121,7 @@ module Persisty
       end
 
       # Registers <tt>entity</tt> on changed entities list, avoiding duplicates.
+      # Also registers changes on dirty tracking map for <tt>entity</tt>.
       # Ingores entities without IDs and if present on other lists.
       # Returns the +set+ with entity added or +nil+ if entity has no ID or it's a duplicate.
       #
@@ -116,7 +130,9 @@ module Persisty
       #   register_changed(Foo.new(id: 123))
       #   # => #<Set: {#<Foo:0x007f8b1a9028b8 @id=123, @amount=nil, @period=nil>}>
       def register_changed(entity)
-        register_on changed_entities, entity
+        return unless register_as_changed?(entity)
+        register_changes_on  entity
+        changed_entities.add entity unless changes_on(entity).empty?
       end
 
       # Tries to remove <tt>entity</tt> from <tt>changed_entities</tt>, registers it
@@ -131,6 +147,7 @@ module Persisty
       #   # => #<Set: {#<Foo:0x007f8b1a9028b8 @id=123, @amount=nil, @period=nil>}>
       def register_removed(entity)
         changed_entities.delete entity
+        dirty_tracking.delete   entity
         clean_entities.delete   entity
 
         return if new_entities.delete? entity
@@ -143,11 +160,15 @@ module Persisty
       def process_all_from(list, process_name) # :nodoc:
         list.each do |entity|
           Repositories::Registry[entity.class].public_send(process_name, entity)
+          yield entity if block_given?
         end
       end
 
       def registration_lists # :nodoc:
-        [clean_entities, new_entities, changed_entities, removed_entities]
+        [
+          clean_entities, dirty_tracking, new_entities,
+          changed_entities, removed_entities
+        ]
       end
 
       def present_on_lists?(entity, lists_to_compare) # :nodoc:
@@ -162,7 +183,13 @@ module Persisty
       end
 
       def present_on_persistent_lists?(entity, lists_to_ignore) # :nodoc:
-        present_on_lists?(entity, (registration_lists[1..3] - lists_to_ignore))
+        present_on_lists?(entity, (registration_lists[1..4] - lists_to_ignore))
+      end
+
+      def register_as_changed?(entity)
+        entity.id.present? and
+          dirty_tracking.include?(entity) and
+          !present_on_persistent_lists?(entity, registration_lists.values_at(1, 3))
       end
     end
   end

@@ -26,12 +26,23 @@ module Persisty
     end
 
     def persist(entity)
-      entity.id = @id_generator.generate unless entity.id.present?
+      assign_new_id_to entity
+
+      map_single_child_nodes_on(entity).each do |child|
+        child.set_foreign_key_for(entity.class, entity.id)
+        assign_new_id_to child
+        unit_of_work.register_new child
+      end
+
       unit_of_work.register_new entity
     end
 
     def remove(entity)
       unit_of_work.register_removed entity
+
+      map_single_child_nodes_on(entity).each do |child|
+        unit_of_work.register_removed child
+      end
     end
 
     def commit
@@ -56,6 +67,16 @@ module Persisty
 
     def start_new_unit_of_work
       Persistence::UnitOfWork.new_current
+    end
+
+    def assign_new_id_to(entity)
+      entity.id = @id_generator.generate unless entity.id.present?
+    end
+
+    def map_single_child_nodes_on(entity)
+      entity.child_nodes_list.map do |child_node|
+        entity.public_send(child_node)
+      end.compact
     end
   end
 end

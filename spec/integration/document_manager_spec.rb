@@ -73,6 +73,146 @@ describe 'DocumentManager integration tests', db_integration: true do
 
       expect(entity.id).to eql new_id
     end
+
+    context 'handling single child nodes' do
+      include_context 'parent node and childs environment'
+
+      it 'persists parent and its childs setting all IDs' do
+        expect {
+          expect {
+            parent.first_child = child_one
+            parent.child_two = child_two
+
+            dm.persist(parent)
+            expect(uow.new_entities).to include parent, child_one, child_two
+
+            dm.commit
+
+            expect(parent.id).not_to be_nil
+            expect(child_one.parent).to eql parent
+            expect(child_one.parent_id).to eql parent.id
+
+            expect(child_two.dad).to eql parent
+            expect(child_two.dad_id).to eql parent.id
+
+            expect(uow.managed?(parent)).to be true
+            expect(uow.managed?(child_one)).to be true
+            expect(uow.managed?(child_two)).to be true
+          }.to change(child_one, :id)
+        }.to change(child_two, :id)
+      end
+
+      it 'persists only parent when child is already persisted' do
+        dm.persist child_one
+        expect(child_one.id).not_to be_nil
+        expect(Persisty::Persistence::UnitOfWork.current.new_entities).to include child_one
+
+        dm.commit
+
+        parent.first_child = child_one
+
+        dm.persist(parent)
+        expect(parent.id).not_to be_nil
+        expect(Persisty::Persistence::UnitOfWork.current.new_entities).to include parent
+        expect(Persisty::Persistence::UnitOfWork.current.new_entities).not_to include child_one
+
+        dm.commit
+
+        expect(child_one.parent).to eql parent
+        expect(child_one.parent_id).to eql parent.id
+
+        expect(Persisty::Persistence::UnitOfWork.current.managed?(parent)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.managed?(child_one)).to be true
+      end
+
+      it 'persists only child when parent is already persisted' do
+        dm.persist(parent)
+        expect(parent.id).not_to be_nil
+        expect(Persisty::Persistence::UnitOfWork.current.new_entities).to include parent
+
+        dm.commit
+
+        parent.first_child = child_one
+
+        dm.persist parent
+        expect(child_one.id).not_to be_nil
+        expect(Persisty::Persistence::UnitOfWork.current.new_entities).not_to include parent
+        expect(Persisty::Persistence::UnitOfWork.current.new_entities).to include child_one
+
+        dm.commit
+
+        expect(child_one.parent).to eql parent
+        expect(child_one.parent_id).to eql parent.id
+
+        expect(Persisty::Persistence::UnitOfWork.current.managed?(parent)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.managed?(child_one)).to be true
+      end
+
+      it 'persists parent and its childs setting only foreign keys' do
+        child_one.id = BSON::ObjectId.new
+        child_two.id = BSON::ObjectId.new
+
+        expect {
+          expect {
+            parent.first_child = child_one
+            parent.child_two = child_two
+
+            dm.persist(parent)
+            expect(uow.new_entities).to include parent, child_one, child_two
+
+            dm.commit
+
+            expect(parent.id).not_to be_nil
+            expect(child_one.parent).to eql parent
+            expect(child_one.parent_id).to eql parent.id
+
+            expect(child_two.dad).to eql parent
+            expect(child_two.dad_id).to eql parent.id
+
+            expect(uow.managed?(parent)).to be true
+            expect(uow.managed?(child_one)).to be true
+            expect(uow.managed?(child_two)).to be true
+          }.not_to change(child_one, :id)
+        }.not_to change(child_two, :id)
+      end
+
+      it 'persists parent correctly when any child is missing' do
+        expect {
+          parent.first_child = child_one
+
+          dm.persist(parent)
+          expect(uow.new_entities).to include parent, child_one
+
+          dm.commit
+
+          expect(parent.id).not_to be_nil
+          expect(child_one.parent).to eql parent
+          expect(child_one.parent_id).to eql parent.id
+
+          expect(parent.child_two).to be_nil
+
+          expect(uow.managed?(parent)).to be true
+          expect(uow.managed?(child_one)).to be true
+        }.to change(child_one, :id)
+      end
+
+      it 'persists only child without going upwards to parent' do
+        expect {
+          parent.first_child = child_one
+
+          dm.persist(child_one)
+
+          dm.commit
+
+          expect(parent.id).to be_nil
+          expect(child_one.parent).to eql parent
+          expect(child_one.parent_id).to be_nil
+
+          expect(uow.managed?(parent)).to be false
+          expect(uow.managed?(child_one)).to be true
+        }.to change(child_one, :id)
+      end
+    end
   end
 
   context 'removing entities' do
@@ -125,6 +265,103 @@ describe 'DocumentManager integration tests', db_integration: true do
       entity._id = new_id
 
       expect(entity.id).to eql new_id
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.managed?(entity)
+      ).to be false
+    end
+
+    context 'handling single child nodes removal' do
+      include_context 'parent node and childs environment'
+
+      it 'removes parent and all childs' do
+        parent.first_child = child_one
+        parent.child_two = child_two
+
+        dm.persist(parent)
+        dm.commit
+
+        dm.remove(parent)
+        expect(uow.removed_entities).to include parent, child_one, child_two
+
+        dm.commit
+
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(parent)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_one)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_two)).to be true
+
+        expect {
+          dm.find(parent.class, parent.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_one.class, child_one.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_two.class, child_two.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+      end
+
+      it 'removes parent and only single child associated' do
+        dm.persist(parent)
+        dm.commit
+
+        child_one.parent = parent
+        dm.persist(child_one)
+        dm.commit
+
+        expect(parent.first_child).to equal child_one
+        expect(child_one.parent).to equal parent
+        expect(child_one.parent_id).to eql parent.id
+        expect(parent.child_two).to be_nil
+
+        dm.remove(parent)
+
+        expect(uow.removed_entities).to include parent, child_one
+
+        dm.commit
+
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(parent)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_one)).to be true
+
+        expect {
+          dm.find(parent.class, parent.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_one.class, child_one.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+      end
+
+      it "doesn't move backwards from child to remove parent" do
+        parent.first_child = child_one
+        parent.child_two = child_two
+
+        dm.persist(parent)
+        dm.commit
+
+        dm.remove(child_one)
+        dm.remove(child_two)
+        expect(uow.removed_entities).to include child_one, child_two
+        expect(uow.removed_entities).not_to include parent
+
+        dm.commit
+
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(parent)).to be false
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_one)).to be true
+        expect(Persisty::Persistence::UnitOfWork.current.detached?(child_two)).to be true
+
+        expect(dm.find(parent.class, parent.id)).to equal parent
+
+        expect {
+          dm.find(child_one.class, child_one.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+
+        expect {
+          dm.find(child_two.class, child_two.id)
+        }.to raise_error(Persisty::Repositories::EntityNotFoundError)
+      end
     end
   end
 
@@ -138,6 +375,29 @@ describe 'DocumentManager integration tests', db_integration: true do
       entity.first_name = 'John'
 
       expect(uow.managed?(entity)).to be true
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.changes_on(entity)
+      ).to include(first_name: [nil, 'John'])
+    end
+
+    it "doesn't mark entity as changed when value didn't change" do
+      other_entity = ::StubEntity.new(first_name: 'John')
+
+      dm.persist other_entity
+      dm.commit
+
+      other_entity.first_name = 'John'
+
+      expect(uow.managed?(entity)).to be true
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.changes_on(entity)
+      ).to be_empty
+
+      expect(
+        Persisty::Persistence::UnitOfWork.current.changed_entities
+      ).not_to include other_entity
     end
 
     it 'correctly updates name on database' do
