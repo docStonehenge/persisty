@@ -48,4 +48,6 @@ module Persisty
   require 'persisty/repositories/base'
 
   require 'persisty/document_manager'
+
+  require 'persisty/matchers/field_defined_matchers'
 end

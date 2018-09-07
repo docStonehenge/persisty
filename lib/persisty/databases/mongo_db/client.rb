@@ -4,33 +4,59 @@ module Persisty
   module Databases
     module MongoDB
       class Client
+        LOG_LEVELS = {
+          info: ::Logger::INFO, debug: ::Logger::DEBUG,
+          unknown: ::Logger::UNKNOWN, fatal: ::Logger::FATAL,
+          error: ::Logger::ERROR, warn: ::Logger::WARN
+        }.freeze
+
         attr_reader :db_client, :id_generator
 
-        # Returns current Thread already set client object or returns a new
-        # client object set on Thread.
-        def self.current_or_new_connection
-          connection or new_connection
-        end
+        class << self
+          # Returns current Thread already set client object or returns a new
+          # client object set on Thread.
+          def current_or_new_connection
+            connection or new_connection
+          end
 
-        # Sets a new instance of Client as <tt>connection</tt> on running thread.
-        def self.new_connection
-          self.connection = new
-        end
+          # Sets a new instance of Client as <tt>connection</tt> on running thread.
+          def new_connection
+            self.connection = new
+          end
 
-        # Sets an instance of Client as <tt>connection</tt> on running thread.
-        def self.connection=(client)
-          Thread.current.thread_variable_set(:connection, client)
-        end
+          # Sets an instance of Client as <tt>connection</tt> on running thread.
+          def connection=(client)
+            Thread.current.thread_variable_set(:connection, client)
+          end
 
-        # Returns <tt>connection</tt> Client on running thread.
-        def self.connection
-          Thread.current.thread_variable_get(:connection)
-        end
+          # Returns <tt>connection</tt> Client on running thread.
+          def connection
+            Thread.current.thread_variable_get(:connection)
+          end
 
-        # Sets logger level and file for connections.
-        def self.set_database_logging
-          Mongo::Logger.logger       = ::Logger.new('log/mongodb.log')
-          Mongo::Logger.logger.level = ::Logger::DEBUG
+          # Sets logger level and file for connections, creating log/ directory
+          # if it doesn't exist yet. Level values available: :info, :debug,
+          # :unknown, :fatal, :error and :warn.
+          # Raises an ArgumentError if <tt>level</tt> is invalid.
+          def set_database_logging(level: :debug)
+            unless Dir.exist?(log_file_dir = File.join(Dir.pwd, 'log'))
+              Dir.mkdir(log_file_dir)
+            end
+
+            Mongo::Logger.logger = ::Logger.new(
+              File.join(log_file_dir, "#{ENV['ENVIRONMENT']}.log")
+            )
+
+            Mongo::Logger.logger.level = logger_level_for(level)
+          end
+
+          private
+
+          def logger_level_for(level_key)
+            LOG_LEVELS.fetch(level_key)
+          rescue KeyError
+            raise ArgumentError
+          end
         end
 
         # Initializes instance with an <tt>id_generator</tt> object and a <tt>db_client</tt>

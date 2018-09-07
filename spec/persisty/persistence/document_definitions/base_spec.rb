@@ -857,6 +857,8 @@ module Persisty
 
               expect(subject.id).to be_nil
               expect(subject.first_name).to be_nil
+              expect(subject).to have_field_defined :first_name, String
+              expect(subject).to have_field_defined :dob, Date
               expect(subject.dob).to be_nil
               expect(subject.stub_entity_id).to be_nil
               expect(subject.stub_entity).to be_nil

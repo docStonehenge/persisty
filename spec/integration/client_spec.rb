@@ -1,22 +1,37 @@
 describe 'Databases::MongoDB::Client integration tests', db_integration: true do
+  let(:temp_log_dir) { "#{Dir.pwd}/log" }
   subject { Persisty::Databases::MongoDB::Client.new }
 
   it 'sets the default database logging to a log file' do
-    temp_log_dir = "#{Dir.pwd}/log"
     FileUtils.mkdir(temp_log_dir)
 
-    log_file = File.new("#{temp_log_dir}/mongodb.log", 'w+')
+    log_file = File.new("#{temp_log_dir}/test.log", 'w+')
 
     Persisty::Databases::MongoDB::Client.set_database_logging
     expect(Mongo::Logger.logger).to be_debug
 
     log_file.close
-    FileUtils.rm_rf(temp_log_dir)
+  end
+
+  it 'allows to set database logging level' do
+    FileUtils.mkdir(temp_log_dir)
+
+    log_file = File.new("#{temp_log_dir}/test.log", 'w+')
+
+    Persisty::Databases::MongoDB::Client.set_database_logging(level: :info)
+    expect(Mongo::Logger.logger).to be_info
+
+    log_file.close
+  end
+
+  it 'creates log directory when not present before setting log' do
+    Persisty::Databases::MongoDB::Client.set_database_logging(level: :warn)
+    expect(Mongo::Logger.logger).to be_warn
   end
 
   describe 'starting real connection' do
     before do
-      Mongo::Logger.logger.level = Logger::INFO
+      Persisty::Databases::MongoDB::Client.set_database_logging(level: :info)
     end
 
     it 'sets connection object into current Thread only' do
@@ -55,7 +70,7 @@ describe 'Databases::MongoDB::Client integration tests', db_integration: true do
 
   describe 'fetching collection correctly' do
     before do
-      Mongo::Logger.logger.level = Logger::INFO
+      Persisty::Databases::MongoDB::Client.set_database_logging(level: :info)
     end
 
     it 'returns collection based on name, fetched as key from db connection' do
@@ -230,5 +245,6 @@ describe 'Databases::MongoDB::Client integration tests', db_integration: true do
   after do
     Thread.current.thread_variable_set(:connection, nil)
     subject.db_client.close
+    FileUtils.rm_rf(temp_log_dir)
   end
 end
