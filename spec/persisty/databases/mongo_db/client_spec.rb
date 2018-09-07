@@ -46,19 +46,72 @@ module Persisty
           end
         end
 
-        describe '.set_database_logging' do
+        describe '.set_database_logging level: :debug' do
+          let(:log_file) { double }
+
           before do
+            allow(Dir).to receive(:pwd).and_return 'foo'
             allow(Mongo::Logger).to receive(:logger).and_return logger
+            allow(ENV).to receive(:[]).with('ENVIRONMENT').and_return 'development'
+            expect(::Logger).to receive(:new).once.with('foo/log/development.log').and_return log_file
           end
 
-          it 'sets the default database logging to a log file' do
-            log_file = double
-
-            allow(::Logger).to receive(:new).once.with('log/mongodb.log').and_return log_file
+          it 'sets the default database logging as debug to a log file named after environment' do
+            expect(Dir).to receive(:exist?).once.with('foo/log').and_return true
             expect(Mongo::Logger).to receive(:logger=).with(log_file)
             expect(logger).to receive(:level=).with(::Logger::DEBUG)
 
             described_class.set_database_logging
+          end
+
+          it 'creates log directory when not present' do
+            expect(Dir).to receive(:exist?).once.with('foo/log').and_return false
+            expect(Dir).to receive(:mkdir).once.with('foo/log')
+
+            expect(Mongo::Logger).to receive(:logger=).with(log_file)
+            expect(logger).to receive(:level=).with(::Logger::DEBUG)
+
+            described_class.set_database_logging
+          end
+
+          context 'setting log level' do
+            before do
+              expect(Dir).to receive(:exist?).once.with('foo/log').and_return true
+              expect(Mongo::Logger).to receive(:logger=).with(log_file)
+            end
+
+            context 'when log level is valid' do
+              it 'sets log level to Logger::INFO' do
+                expect(logger).to receive(:level=).with(::Logger::INFO)
+                described_class.set_database_logging(level: :info)
+              end
+
+              it 'sets log level to Logger::UNKNOWN' do
+                expect(logger).to receive(:level=).with(::Logger::UNKNOWN)
+                described_class.set_database_logging(level: :unknown)
+              end
+
+              it 'sets log level to Logger::FATAL' do
+                expect(logger).to receive(:level=).with(::Logger::FATAL)
+                described_class.set_database_logging(level: :fatal)
+              end
+
+              it 'sets log level to Logger::ERROR' do
+                expect(logger).to receive(:level=).with(::Logger::ERROR)
+                described_class.set_database_logging(level: :error)
+              end
+
+              it 'sets log level to Logger::WARN' do
+                expect(logger).to receive(:level=).with(::Logger::WARN)
+                described_class.set_database_logging(level: :warn)
+              end
+            end
+
+            it 'raises ArgumentError when log level is invalid' do
+              expect {
+                described_class.set_database_logging(level: :foo)
+              }.to raise_error(ArgumentError)
+            end
           end
         end
 
