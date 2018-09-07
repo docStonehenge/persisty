@@ -69,25 +69,25 @@ module Persisty
 
             subject.add(entity)
 
-            ::AnotherEntity = Class.new.include(
+            ::AnotherDirtyTrackedEntity = Class.new.include(
               Persistence::DocumentDefinitions::Base
             )
 
-            ::AnotherEntity.define_field(:name, type: String)
-            other_entity = AnotherEntity.new(id: id)
+            ::AnotherDirtyTrackedEntity.define_field(:name, type: String)
+            other_entity = AnotherDirtyTrackedEntity.new(id: id)
 
             subject.add(other_entity)
 
             expect(subject.entities.size).to eql 2
             expect(subject.entities).to have_key("dirtytrackedentity>>#{id}")
-            expect(subject.entities).to have_key("anotherentity>>#{id}")
+            expect(subject.entities).to have_key("anotherdirtytrackedentity>>#{id}")
 
             expect(
               subject.entities.dig("dirtytrackedentity>>#{id}")
             ).to eql(first_name: [nil], age: [nil], wage: [nil])
 
             expect(
-              subject.entities.dig("anotherentity>>#{id}")
+              subject.entities.dig("anotherdirtytrackedentity>>#{id}")
             ).to eql(name: [nil])
           end
 
