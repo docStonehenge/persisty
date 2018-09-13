@@ -95,8 +95,8 @@ module Persisty
           end
         end
 
-        describe '#to_mongo_document' do
-          let(:entity_document) { entity.to_mongo_document }
+        describe '#_as_mongo_document' do
+          let(:entity_document) { entity._as_mongo_document }
 
           it 'calls repository to load collection and transforms each object to mongo_document' do
             expect(
@@ -107,7 +107,7 @@ module Persisty
                                           StubEntity, filter: { string_id: model.id }
                                         ).and_return [entity]
 
-            expect(subject.to_mongo_document).to include entity_document
+            expect(subject._as_mongo_document).to include entity_document
           end
         end
 
@@ -200,12 +200,12 @@ module Persisty
           end
         end
 
-        describe '#to_mongo_document' do
-          let(:entity_document) { entity.to_mongo_document }
+        describe '#_as_mongo_document' do
+          let(:entity_document) { entity._as_mongo_document }
 
           it 'transforms each object to mongo_document' do
             expect(DocumentManager).not_to receive(:new)
-            expect(subject.to_mongo_document).to include entity_document
+            expect(subject._as_mongo_document).to include entity_document
           end
         end
 

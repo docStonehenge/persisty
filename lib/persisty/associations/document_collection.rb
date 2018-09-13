@@ -13,8 +13,8 @@ module Persisty
         self
       end
 
-      def to_mongo_document
-        all.map(&:to_mongo_document)
+      def _as_mongo_document
+        all.map(&:_as_mongo_document)
       end
 
       def size

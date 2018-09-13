@@ -295,7 +295,7 @@ module Persisty
 
       describe '#insert entity' do
         it 'saves an entry from entity instance on collection, based on its mapped fields' do
-          allow(entity_to_save).to receive(:to_mongo_document).once.and_return(
+          allow(entity_to_save).to receive(:_as_mongo_document).once.and_return(
                              _id: 1, amount: 200.0, period: Date.parse('1990/01/01')
                            )
 
@@ -309,7 +309,7 @@ module Persisty
 
         it "raises InvalidEntityError if entity isn't an instance of entity_klass" do
           entity = OpenStruct.new
-          expect(entity).not_to receive(:to_mongo_document)
+          expect(entity).not_to receive(:_as_mongo_document)
           expect(client).not_to receive(:insert_on).with(any_args)
 
           expect {
@@ -324,7 +324,7 @@ module Persisty
         it "raises InvalidEntityError if entity doesn't have id field set" do
           expect(entity_to_save).to receive(:id).and_return nil
 
-          expect(entity_to_save).not_to receive(:to_mongo_document)
+          expect(entity_to_save).not_to receive(:_as_mongo_document)
           expect(client).not_to receive(:insert_on).with(any_args)
 
           expect {
@@ -333,7 +333,7 @@ module Persisty
         end
 
         it 'raises Repositories::InsertionError when insertion fails' do
-          allow(entity_to_save).to receive(:to_mongo_document).once.and_return(
+          allow(entity_to_save).to receive(:_as_mongo_document).once.and_return(
                                      _id: 1, amount: 200.0, period: Date.parse('1990/01/01')
                                    )
 
@@ -351,7 +351,7 @@ module Persisty
       describe '#update entity' do
         it 'calls document update on collection, using entity id as identifier' do
           expect(entity_to_save).to receive(
-                                      :to_mongo_document
+                                      :_as_mongo_document
                                     ).once.with(include_id_field: false).and_return(
                                       amount: 200.0, period: Date.parse('1990/01/01')
                                     )
@@ -367,7 +367,7 @@ module Persisty
 
         it "raises InvalidEntityError if entity isn't an instance of entity_klass" do
           entity = OpenStruct.new
-          expect(entity).not_to receive(:to_mongo_document).with(any_args)
+          expect(entity).not_to receive(:_as_mongo_document).with(any_args)
           expect(client).not_to receive(:update_on).with(any_args)
 
           expect {
@@ -382,7 +382,7 @@ module Persisty
         it "raises InvalidEntityError if entity doesn't have id field set" do
           allow(entity_to_save).to receive(:id).and_return nil
 
-          expect(entity_to_save).not_to receive(:to_mongo_document)
+          expect(entity_to_save).not_to receive(:_as_mongo_document)
           expect(client).not_to receive(:update_on).with(any_args)
 
           expect {
@@ -392,7 +392,7 @@ module Persisty
 
         it 'raises Repositories::UpdateError when update operation fails' do
           expect(entity_to_save).to receive(
-                                      :to_mongo_document
+                                      :_as_mongo_document
                                     ).once.with(include_id_field: false).and_return(
                                       amount: 200.0, period: Date.parse('1990/01/01')
                                     )

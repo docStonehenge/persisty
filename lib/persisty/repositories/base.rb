@@ -34,7 +34,7 @@ module Persisty
         validate_entity_id_field entity
 
         trap_operation_error_as InsertionError do
-          @connection.insert_on(@collection_name, entity.to_mongo_document)
+          @connection.insert_on(@collection_name, entity._as_mongo_document)
         end
       end
 
@@ -45,7 +45,7 @@ module Persisty
         trap_operation_error_as UpdateError do
           @connection.update_on(
             @collection_name, { _id: entity.id },
-            '$set' => entity.to_mongo_document(include_id_field: false)
+            '$set' => entity._as_mongo_document(include_id_field: false)
           )
         end
       end

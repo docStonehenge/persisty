@@ -1145,7 +1145,7 @@ module Persisty
             end
           end
 
-          describe '#to_hash include_id_field: true' do
+          describe '#_raw_fields include_id_field: true' do
             subject { described_class.new(id: id, first_name: 'John', dob: Date.parse('1990/01/01')) }
 
             before do
@@ -1156,7 +1156,7 @@ module Persisty
 
             context 'when ID field is included' do
               it 'returns fields names and values mapped into a Hash, without relations' do
-                result = subject.to_hash
+                result = subject._raw_fields
 
                 expect(result).to include(
                                     id: id, first_name: 'John',
@@ -1169,7 +1169,7 @@ module Persisty
 
             context 'when ID field is not included' do
               it 'returns fields names and values mapped into a Hash, without relations and ID' do
-                result = subject.to_hash(include_id_field: false)
+                result = subject._raw_fields(include_id_field: false)
 
                 expect(result).to include(
                                     first_name: 'John', dob: Date.parse('1990/01/01'),
@@ -1181,7 +1181,7 @@ module Persisty
             end
           end
 
-          describe '#to_mongo_document' do
+          describe '#_as_mongo_document' do
             include_context 'EntityWithAllValues'
 
             subject do
@@ -1202,7 +1202,7 @@ module Persisty
 
             it "maps fields names and values, with mongo permitted values and '_id' field" do
               expect(
-                subject.to_mongo_document
+                subject._as_mongo_document
               ).to eql(
                      _id: id, field1: "Foo", field2: 123, field3: 123.0,
                      field4: 123.0, field5: true, field6: [123, 200.0],
@@ -1215,7 +1215,7 @@ module Persisty
 
             it "maps fields names and values, with mongo permitted values, without '_id' field" do
               expect(
-                subject.to_mongo_document(include_id_field: false)
+                subject._as_mongo_document(include_id_field: false)
               ).to eql(
                      field1: "Foo", field2: 123, field3: 123.0, field4: 123.0,
                      field5: true, field6: [123, 200.0],

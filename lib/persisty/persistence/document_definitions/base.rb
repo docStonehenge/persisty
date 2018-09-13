@@ -85,7 +85,7 @@ module Persisty
         # and their respective values, without including any relations.
         # <tt>include_id_field</tt> argument indicates if the Hash returned must
         # map the +id+ field or not.
-        def to_hash(include_id_field: true)
+        def _raw_fields(include_id_field: true)
           variables = instance_variables
           parent_nodes_list.each { |node| variables.delete(:"@#{node}") }
 
@@ -102,8 +102,10 @@ module Persisty
         # and their respective values converted to MongoDB friendly values.
         # <tt>include_id_field</tt> argument indicated if +_id+ field must
         # be present on document-like structure returned, for insertions or queries.
-        def to_mongo_document(include_id_field: true)
-          document = to_hash(include_id_field: include_id_field)
+        # It is used internally by repositories to map values from entities to
+        # documents on the database.
+        def _as_mongo_document(include_id_field: true)
+          document = _raw_fields(include_id_field: include_id_field)
 
           if include_id_field
             id_field = document.delete(:id)
