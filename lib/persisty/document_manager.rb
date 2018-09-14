@@ -15,10 +15,8 @@ module Persisty
       repository_for(entity_type).find(entity_id)
     end
 
-    def find_all(entity_type, filter: {}, sorted_by: {})
-      repository_for(entity_type).find_all(
-        filter: filter, sorted_by: sorted_by
-      )
+    def find_all(entity_type, filter: {}, **options)
+      repository_for(entity_type).find_all(filter: filter, **options)
     end
 
     def repository_for(entity_type)

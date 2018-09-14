@@ -72,10 +72,11 @@ module Persisty
           raise Databases::ConnectionError, e
         end
 
-        # Returns results as a cursor of documents from collection, using provided filter and
-        # sort options.
-        def find_on(collection, filter: {}, sort: {})
-          database_collection(collection).find(filter, sort: sort)
+        # Returns results as a cursor of documents from collection, using provided
+        # options. Any invalid key or not received option as argument will be skipped.
+        def find_on(collection, **options)
+          filter = options.delete(:filter) || {}
+          database_collection(collection).find(filter, options)
         end
 
         # Inserts document into named collection.

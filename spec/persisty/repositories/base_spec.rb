@@ -23,6 +23,8 @@ module Persisty
       describe '#find id' do
         context 'when no UnitOfWork is set on current Thread' do
           it 'raises error on call to get loaded entities' do
+            allow(BSON::ObjectId).to receive(:try_convert).with('123').and_return '123'
+
             expect(
               Persistence::UnitOfWork
             ).to receive(:current).and_raise Persistence::UnitOfWorkNotStartedError
@@ -36,12 +38,13 @@ module Persisty
         context 'when entity is not yet loaded on registry' do
           before do
             allow(Persistence::UnitOfWork).to receive(:current).and_return uow
+            allow(BSON::ObjectId).to receive(:try_convert).with('123').and_return '123'
             allow(uow).to receive(:get).once.with(::StubEntity, '123').and_return nil
           end
 
           it 'queries for entity with id, sets into current uow and returns entity object' do
             expect(client).to receive(:find_on).once.with(
-                                :stub_entities, filter: { _id: '123' }, sort: {}
+                                :stub_entities, filter: { _id: '123' }
                               ).and_return [{ '_id' => '123' }]
 
             expect(::StubEntity).to receive(:new).once.with(
@@ -57,6 +60,7 @@ module Persisty
         context 'when entity is already loaded on registry' do
           before do
             allow(Persistence::UnitOfWork).to receive(:current).and_return uow
+            allow(BSON::ObjectId).to receive(:try_convert).with('123').and_return '123'
             allow(uow).to receive(:get).once.with(::StubEntity, '123').and_return entity
           end
 
@@ -69,11 +73,22 @@ module Persisty
 
         context 'when entity ID is not found' do
           it 'raises EntityNotFoundError' do
+            expect(uow).not_to receive(:get).with(any_args)
+
+            expect(client).not_to receive(:find_on).with(any_args)
+
+            expect { subject.find('123') }.to raise_error(ArgumentError, "ID provided isn't a valid BSON::ObjectId")
+          end
+        end
+
+        context "when ID can't be resolved as BSON::ObjectId" do
+          it 'raises ArgumentError' do
             allow(Persistence::UnitOfWork).to receive(:current).and_return uow
+            allow(BSON::ObjectId).to receive(:try_convert).with('123').and_return '123'
             allow(uow).to receive(:get).once.with(::StubEntity, '123').and_return nil
 
             expect(client).to receive(:find_on).once.with(
-                                :stub_entities, filter: { _id: '123' }, sort: {}
+                                :stub_entities, filter: { _id: '123' }
                               ).and_return []
 
             expect { subject.find('123') }.to raise_error(
@@ -84,10 +99,10 @@ module Persisty
         end
       end
 
-      describe '#find_all filter: {}, sorted_by: {}' do
+      describe '#find_all filter: {}, **options' do
         it 'raises error when call to current UnitOfWork raises error' do
           expect(client).to receive(:find_on).with(
-                              :stub_entities, filter: {}, sort: {}
+                              :stub_entities, filter: {}
                             ).and_return(
                               [{ '_id' => 1 }]
                             )
@@ -109,7 +124,7 @@ module Persisty
           context 'when provided with a query filter' do
             before do
               expect(client).to receive(:find_on).once.with(
-                                  :stub_entities, filter: { period: Date.parse('January/2016') }, sort: {}
+                                  :stub_entities, filter: { period: Date.parse('January/2016') }
                                 ).and_return [{ '_id' => 1 }]
 
               expect(uow).to receive(:get).once.with(::StubEntity, 1).and_return nil
@@ -131,7 +146,7 @@ module Persisty
           context 'when not provided with a query filter' do
             before do
               expect(client).to receive(:find_on).with(
-                                  :stub_entities, filter: {}, sort: {}
+                                  :stub_entities, filter: {}
                                 ).and_return(
                                   [
                                     { '_id' => 1 },
@@ -159,7 +174,7 @@ module Persisty
             end
           end
 
-          context 'when provided with a sorted_by option' do
+          context 'when provided with sort option' do
             before do
               expect(uow).to receive(:get).once.with(::StubEntity, 1).and_return nil
               expect(uow).to receive(:get).once.with(::StubEntity, 2).and_return nil
@@ -186,7 +201,38 @@ module Persisty
               expect(uow).to receive(:track_clean).once.with(entity2).and_return entity2
               expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
-              expect(subject.find_all(sorted_by: { period: 1 })).to eql [entity2, entity]
+              expect(subject.find_all(sort: { period: 1 })).to eql [entity2, entity]
+            end
+          end
+
+          context 'when provided with limit option' do
+            before do
+              expect(uow).to receive(:get).once.with(::StubEntity, 1).and_return nil
+              expect(uow).to receive(:get).once.with(::StubEntity, 2).and_return nil
+
+              expect(client).to receive(:find_on).with(
+                                  :stub_entities, filter: {}, limit: 2
+                                ).and_return(
+                                  [
+                                    { '_id' => 1 },
+                                    { '_id' => 2 }
+                                  ]
+                                )
+            end
+
+            it 'returns all documents as entity objects at limited number' do
+              expect(::StubEntity).to receive(:new).once.with(
+                                            { '_id' => 1 }
+                                          ).and_return entity
+
+              expect(::StubEntity).to receive(:new).once.with(
+                                            { '_id' => 2 }
+                                          ).and_return entity2
+
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
+              expect(uow).to receive(:track_clean).once.with(entity2).and_return entity2
+
+              expect(subject.find_all(limit: 2)).to eql [entity, entity2]
             end
           end
         end
@@ -210,8 +256,7 @@ module Persisty
             before do
               expect(client).to receive(:find_on).once.with(
                                   :stub_entities,
-                                  filter: { period: Date.parse('January/2016') },
-                                  sort: {}
+                                  filter: { period: Date.parse('January/2016') }
                                 ).and_return(
                                   [
                                     { '_id' => 124 },
@@ -240,7 +285,7 @@ module Persisty
           context 'when not provided with a query filter' do
             before do
               expect(client).to receive(:find_on).once.with(
-                                  :stub_entities, filter: {}, sort: {}
+                                  :stub_entities, filter: {}
                                 ).and_return(
                                   [
                                     { '_id' => 124 },
@@ -264,7 +309,7 @@ module Persisty
             end
           end
 
-          context 'when provided with a sorted_by option' do
+          context 'when provided with sort option' do
             before do
               expect(client).to receive(:find_on).with(
                                   :stub_entities, filter: {}, sort: { period: 1 }
@@ -287,7 +332,34 @@ module Persisty
 
               expect(uow).to receive(:track_clean).once.with(entity).and_return entity
 
-              expect(subject.find_all(sorted_by: { period: 1 })).to eql [@loaded_entity, entity]
+              expect(subject.find_all(sort: { period: 1 })).to eql [@loaded_entity, entity]
+            end
+          end
+
+          context 'when provided with limit option' do
+            before do
+              expect(client).to receive(:find_on).with(
+                                  :stub_entities, filter: {}, limit: 2
+                                ).and_return(
+                                  [
+                                    { '_id' => 124 },
+                                    { '_id' => 125 }
+                                  ]
+                                )
+            end
+
+            it 'returns all documents as entity objects limited as option' do
+              expect(::StubEntity).not_to receive(:new).with(
+                                                { '_id' => 124 }
+                                              )
+
+              expect(::StubEntity).to receive(:new).once.with(
+                                            { '_id' => 125 }
+                                          ).and_return entity
+
+              expect(uow).to receive(:track_clean).once.with(entity).and_return entity
+
+              expect(subject.find_all(limit: 2)).to eql [@loaded_entity, entity]
             end
           end
         end

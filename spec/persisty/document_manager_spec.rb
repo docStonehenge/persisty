@@ -60,7 +60,7 @@ module Persisty
       end
     end
 
-    describe '#find_all entity_type, filter: {}, sorted_by: {}' do
+    describe '#find_all entity_type, filter: {}, **options' do
       before do
         expect(
           subject
@@ -70,7 +70,7 @@ module Persisty
       it 'returns collection of entities from query without filter or sort' do
         expect(repository).to receive(
                                 :find_all
-                              ).once.with(filter: {}, sorted_by: {}).and_return [entity]
+                              ).once.with(filter: {}).and_return [entity]
 
         expect(subject.find_all(Class)).to eql [entity]
       end
@@ -79,7 +79,7 @@ module Persisty
         expect(repository).to receive(
                                 :find_all
                               ).once.with(
-                                filter: { foo: 'bar' }, sorted_by: {}
+                                filter: { foo: 'bar' }
                               ).and_return [entity]
 
         expect(
@@ -91,11 +91,23 @@ module Persisty
         expect(repository).to receive(
                                 :find_all
                               ).once.with(
-                                filter: {}, sorted_by: { foo: -1 }
+                                filter: {}, sort: { foo: -1 }
                               ).and_return [entity]
 
         expect(
-          subject.find_all(Class, sorted_by: { foo: -1 })
+          subject.find_all(Class, sort: { foo: -1 })
+        ).to eql [entity]
+      end
+
+      it 'returns collection of entities from query with limit only' do
+        expect(repository).to receive(
+                                :find_all
+                              ).once.with(
+                                filter: {}, limit: 1
+                              ).and_return [entity]
+
+        expect(
+          subject.find_all(Class, limit: 1)
         ).to eql [entity]
       end
 
@@ -103,11 +115,47 @@ module Persisty
         expect(repository).to receive(
                                 :find_all
                               ).once.with(
-                                filter: { foo: 'bar' }, sorted_by: { foo: -1 }
+                                filter: { foo: 'bar' }, sort: { foo: -1 }
                               ).and_return [entity]
 
         expect(
-          subject.find_all(Class, filter: { foo: 'bar' }, sorted_by: { foo: -1 })
+          subject.find_all(Class, filter: { foo: 'bar' }, sort: { foo: -1 })
+        ).to eql [entity]
+      end
+
+      it 'returns collection of entities from query with filter and limit' do
+        expect(repository).to receive(
+                                :find_all
+                              ).once.with(
+                                filter: { foo: 'bar' }, limit: 1
+                              ).and_return [entity]
+
+        expect(
+          subject.find_all(Class, filter: { foo: 'bar' }, limit: 1)
+        ).to eql [entity]
+      end
+
+      it 'returns collection of entities from query with sort and limit' do
+        expect(repository).to receive(
+                                :find_all
+                              ).once.with(
+                                filter: {}, sort: { foo: -1 }, limit: 1
+                              ).and_return [entity]
+
+        expect(
+          subject.find_all(Class, sort: { foo: -1 }, limit: 1)
+        ).to eql [entity]
+      end
+
+      it 'returns collection of entities from query with filter, sort and limit' do
+        expect(repository).to receive(
+                                :find_all
+                              ).once.with(
+                                filter: { foo: 'bar' }, sort: { foo: -1 }, limit: 1
+                              ).and_return [entity]
+
+        expect(
+          subject.find_all(Class, filter: { foo: 'bar' }, sort: { foo: -1 }, limit: 1)
         ).to eql [entity]
       end
     end

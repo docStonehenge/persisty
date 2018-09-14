@@ -66,6 +66,15 @@ describe 'Repositories integration tests', db_integration: true do
       expect(result.wage).to eql entity.wage
     end
 
+    it 'returns entity found by id as a string' do
+      result = repo.find(entity.id.to_s)
+
+      expect(result.id).to eql entity.id
+      expect(result.first_name).to eql entity.first_name
+      expect(result.age).to eql entity.age
+      expect(result.wage).to eql entity.wage
+    end
+
     it 'returns the same entity object after first query' do
       result1 = repo.find(entity.id)
       result2 = repo.find(entity.id)
@@ -82,9 +91,13 @@ describe 'Repositories integration tests', db_integration: true do
         repo.find(BSON::ObjectId.new)
       }.to raise_error(Persisty::Repositories::EntityNotFoundError)
     end
+
+    it "raises ArgumentError when id provided can't be resolved as BSON::ObjectId" do
+      expect { repo.find(123) }.to raise_error(ArgumentError, "ID provided isn't a valid BSON::ObjectId")
+    end
   end
 
-  describe 'querying with filters and sorting' do
+  describe 'querying with filters and options' do
     before do
       Persisty::Persistence::UnitOfWork.new_current
 
@@ -99,7 +112,7 @@ describe 'Repositories integration tests', db_integration: true do
       repo.insert @entity4
     end
 
-    it 'returns all entities without using filters or sorting' do
+    it 'returns all entities without using filters or options' do
       expect(repo.find_all).to include(@entity1, @entity2, @entity3, @entity4)
     end
 
@@ -141,7 +154,7 @@ describe 'Repositories integration tests', db_integration: true do
     end
 
     it 'returns entities correctly sorted' do
-      result = repo.find_all(sorted_by: { age: -1 })
+      result = repo.find_all(sort: { age: -1 })
 
       entity1 = result[0]
       entity2 = result[1]
@@ -153,14 +166,52 @@ describe 'Repositories integration tests', db_integration: true do
       expect(entity4.id).to eql @entity1.id
     end
 
+    it 'returns entities limited at a certain number' do
+      result = repo.find_all(limit: 2)
+
+      expect(result.count).to eql 2
+
+      entity1 = result[0]
+      entity2 = result[1]
+
+      expect(entity1.id).to eql @entity1.id
+      expect(entity2.id).to eql @entity2.id
+    end
+
     it 'returns entities correctly filtered and sorted' do
-      result = repo.find_all(filter: { age: { '$gte' => 30 } }, sorted_by: { age: -1 })
+      result = repo.find_all(filter: { age: { '$gte' => 30 } }, sort: { age: -1 })
 
       entity1 = result[0]
       entity2 = result[1]
 
       expect(entity1.id).to eql @entity3.id
       expect(entity2.id).to eql @entity2.id
+    end
+
+    it 'returns entities correctly filtered and limited at a certain number' do
+      result = repo.find_all(filter: { age: { '$gte' => 30 } }, limit: 1)
+
+      expect(result.count).to eql 1
+      expect(result[0].id).to eql @entity2.id
+    end
+
+    it 'returns entities correctly sorted and limited at a certain number' do
+      result = repo.find_all(sort: { age: -1 }, limit: 1)
+
+      expect(result.count).to eql 1
+      expect(result[0].id).to eql @entity3.id
+    end
+
+    it 'returns entities correctly filtered, sorted and limited at a certain number' do
+      result = repo.find_all(filter: { age: { '$gte' => 20, '$lte' => 40 } }, sort: { age: -1 }, limit: 2)
+
+      expect(result.count).to eql 2
+
+      entity1 = result[0]
+      entity2 = result[1]
+
+      expect(entity1.id).to eql @entity2.id
+      expect(entity2.id).to eql @entity4.id
     end
 
     it 'returns empty collection when no entities are found' do

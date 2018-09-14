@@ -12,19 +12,20 @@ module Persisty
       end
 
       def find(id)
-        load_entity(id) do
-          query = get_entries({ _id: id }, {})
+        entity_id = BSON::ObjectId.try_convert(id)
+        raise ArgumentError, "ID provided isn't a valid BSON::ObjectId" unless entity_id
 
-          if query.count.zero?
-            raise EntityNotFoundError.new(id: id, entity_name: @entity_klass.name)
+        load_entity(entity_id) do
+          if (query = get_entries({ _id: entity_id })).count.zero?
+            raise EntityNotFoundError.new(id: entity_id, entity_name: @entity_klass.name)
           end
 
           query.first
         end
       end
 
-      def find_all(filter: {}, sorted_by: {})
-        get_entries(filter, sorted_by).map do |entry|
+      def find_all(filter: {}, **options)
+        get_entries(filter, options).map do |entry|
           load_entity(entry.dig('_id')) { entry }
         end
       end
@@ -65,9 +66,9 @@ module Persisty
 
       private
 
-      def get_entries(filter, sorted_by) # :nodoc:
+      def get_entries(filter, options = {}) # :nodoc:
         @connection.find_on(
-          @collection_name, filter: filter.to_mongo_value, sort: sorted_by
+          @collection_name, filter: filter.to_mongo_value, **options
         )
       end
 
