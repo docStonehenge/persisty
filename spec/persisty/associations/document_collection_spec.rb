@@ -66,14 +66,14 @@ module Persisty
         end
 
         describe '#first' do
-          it 'calls repository to load collection and returns first object' do
+          it 'calls repository to find entities limiting at one and returns first object' do
             expect(
               DocumentManager
             ).to receive(:new).once.and_return document_manager
 
             expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity, double]
+                                          StubEntity, filter: { string_id: model.id }, limit: 1
+                                        ).and_return [entity]
 
             expect(subject.first).to eql entity
           end
@@ -82,14 +82,15 @@ module Persisty
         describe '#last' do
           let(:last_entity) { double }
 
-          it 'calls repository to load collection and returns last object' do
+          it 'calls repository to return entity limiting at one and sorting ID descending' do
             expect(
               DocumentManager
             ).to receive(:new).once.and_return document_manager
 
             expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity, last_entity]
+                                          StubEntity, filter: { string_id: model.id },
+                                          sort: { _id: -1 }, limit: 1
+                                        ).and_return [last_entity]
 
             expect(subject.last).to eql last_entity
           end
