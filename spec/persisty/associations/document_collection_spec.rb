@@ -23,6 +23,112 @@ module Persisty
           end
         end
 
+        describe '#<< entity' do
+          let(:other_entity) { StubEntity.new }
+
+          before do
+            expect(
+              DocumentManager
+            ).to receive(:new).once.and_return document_manager
+
+            expect(document_manager).to receive(:find_all).once.with(
+                                          StubEntity, filter: { string_id: model.id }
+                                        ).and_return collection
+          end
+
+          context 'when entity has ID' do
+            before do
+              other_entity.id = BSON::ObjectId.new
+              entity.id = BSON::ObjectId.new
+            end
+
+            context "when collection doesn't include entity yet" do
+              let(:collection) { [entity] }
+
+              it 'pushes entity to collection, sorting collection after' do
+                subject << other_entity
+
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+
+            context 'when collection already include entity' do
+              let(:collection) { [other_entity, entity] }
+
+              it 'skips pushing and sorting on collection' do
+                subject << other_entity
+
+                expect(collection.count).to eql 2
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+          end
+
+          context "when entity doesn't have ID" do
+            before { entity.id = BSON::ObjectId.new }
+
+            let(:collection) { [entity] }
+
+            it 'pushes entity to collection, leaving pushed entity in last' do
+              subject << other_entity
+              expect(collection).to eql([entity, other_entity])
+            end
+          end
+        end
+
+        describe '#push entity' do
+          let(:other_entity) { StubEntity.new }
+
+          before do
+            expect(
+              DocumentManager
+            ).to receive(:new).once.and_return document_manager
+
+            expect(document_manager).to receive(:find_all).once.with(
+                                          StubEntity, filter: { string_id: model.id }
+                                        ).and_return collection
+          end
+
+          context 'when entity has ID' do
+            before do
+              other_entity.id = BSON::ObjectId.new
+              entity.id = BSON::ObjectId.new
+            end
+
+            context "when collection doesn't include entity yet" do
+              let(:collection) { [entity] }
+
+              it 'pushes entity to collection, sorting collection after' do
+                subject.push other_entity
+
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+
+            context 'when collection already include entity' do
+              let(:collection) { [other_entity, entity] }
+
+              it 'skips pushing and sorting on collection' do
+                subject.push other_entity
+
+                expect(collection.count).to eql 2
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+          end
+
+          context "when entity doesn't have ID" do
+            before { entity.id = BSON::ObjectId.new }
+
+            let(:collection) { [entity] }
+
+            it 'pushes entity to collection, leaving pushed entity in last' do
+              subject.push other_entity
+              expect(collection).to eql([entity, other_entity])
+            end
+          end
+        end
+
         describe '#all' do
           it 'calls repository to load collection and returns all objects found' do
             expect(
@@ -142,7 +248,9 @@ module Persisty
       end
 
       context "when collection isn't nil" do
-        subject { described_class.new(model, StubEntity, [entity]) }
+        let(:collection) { [entity] }
+
+        subject { described_class.new(model, StubEntity, collection) }
 
         describe '#reload' do
           it 'clears collection variable, loads collection and returns subject' do
@@ -155,6 +263,96 @@ module Persisty
                                         ).and_return [entity]
 
             expect(subject.reload).to eql subject
+          end
+        end
+
+        describe '#<< entity' do
+          let(:other_entity) { StubEntity.new }
+
+          before do
+            expect(DocumentManager).not_to receive(:new)
+          end
+
+          context 'when entity has ID' do
+            before do
+              other_entity.id = BSON::ObjectId.new
+              entity.id = BSON::ObjectId.new
+            end
+
+            context "when collection doesn't include entity yet" do
+              it 'pushes entity to collection, sorting collection after' do
+                subject << other_entity
+
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+
+            context 'when collection already include entity' do
+              let(:collection) { [other_entity, entity] }
+
+              subject { described_class.new(model, StubEntity, collection) }
+
+              it 'skips pushing and sorting on collection' do
+                subject << other_entity
+
+                expect(collection.count).to eql 2
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+          end
+
+          context "when entity doesn't have ID" do
+            before { entity.id = BSON::ObjectId.new }
+
+            it 'pushes entity to collection, leaving pushed entity in last' do
+              subject << other_entity
+              expect(collection).to eql([entity, other_entity])
+            end
+          end
+        end
+
+        describe '#push entity' do
+          let(:other_entity) { StubEntity.new }
+
+          before do
+            expect(DocumentManager).not_to receive(:new)
+          end
+
+          context 'when entity has ID' do
+            before do
+              other_entity.id = BSON::ObjectId.new
+              entity.id = BSON::ObjectId.new
+            end
+
+            context "when collection doesn't include entity yet" do
+              it 'pushes entity to collection, sorting collection after' do
+                subject.push other_entity
+
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+
+            context 'when collection already include entity' do
+              let(:collection) { [other_entity, entity] }
+
+              subject { described_class.new(model, StubEntity, collection) }
+
+              it 'skips pushing and sorting on collection' do
+                subject.push other_entity
+
+                expect(collection.count).to eql 2
+                expect(collection).to eql([other_entity, entity])
+              end
+            end
+          end
+
+          context "when entity doesn't have ID" do
+            before { entity.id = BSON::ObjectId.new }
+
+            it 'pushes entity to collection, leaving pushed entity in last' do
+              subject.push other_entity
+              expect(collection).to eql([entity, other_entity])
+            end
           end
         end
 

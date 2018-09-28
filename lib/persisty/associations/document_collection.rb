@@ -24,6 +24,20 @@ module Persisty
 
       alias count size
 
+      def push(entity)
+        load_collection
+
+        unless @collection.map(&:id).include? entity.id
+          @collection << entity
+          @collection.sort! { |x, y| x <=> y }
+        end
+      rescue Persistence::Entities::ComparisonError
+      ensure
+        @collection
+      end
+
+      alias << push
+
       def all
         load_collection
         @collection
