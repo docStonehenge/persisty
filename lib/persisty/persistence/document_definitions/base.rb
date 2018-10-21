@@ -336,14 +336,15 @@ module Persisty
 
         def handle_current_parent_change(parent_node_name, new_parent_id)
           return unless (current_parent = instance_variable_get(:"@#{parent_node_name}"))
+          return unless current_parent.id and current_parent.id != new_parent_id
 
-          if current_parent.id and current_parent.id != new_parent_id
-            current_parent.public_send(
-              "#{current_parent.child_nodes_map.key(self.class)}=", nil
-            )
-
-            instance_variable_set(:"@#{parent_node_name}", nil)
+          if (collection = current_parent.child_nodes_collections_map.key(self.class))
+            current_parent.public_send(collection).remove(self)
+          else
+            current_parent.public_send("#{current_parent.child_nodes_map.key(self.class)}=", nil)
           end
+
+          instance_variable_set(:"@#{parent_node_name}", nil)
         end
 
         def initialize_fields_with(attributes)
