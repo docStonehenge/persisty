@@ -388,51 +388,67 @@ module Persisty
                   allow(entity).to receive(:child_nodes_collections_map).and_return(test_classes: ::TestClass)
                 end
 
-                it "doesn't clear parent scope field from when foreign key passed is same" do
-                  entity.id = BSON::ObjectId.new
-                  Persistence::UnitOfWork.current.register_clean @subject
-                  described_class.parent_node :stub_entity
+                context 'when foreign key is same as current' do
+                  it "doesn't clear parent scope field" do
+                    entity.id = BSON::ObjectId.new
+                    Persistence::UnitOfWork.current.register_clean @subject
+                    described_class.parent_node :stub_entity
 
-                  @subject.stub_entity = entity
+                    @subject.stub_entity = entity
 
-                  expect(entity).not_to receive(:test_classes)
+                    expect(entity).not_to receive(:test_classes)
 
-                  @subject.stub_entity_id = entity.id
-                  expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+                    @subject.stub_entity_id = entity.id
+                    expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+                  end
                 end
 
-                it 'removes itself from current_parent collection when setting foreign_key to nil' do
-                  entity.id = BSON::ObjectId.new
-                  Persistence::UnitOfWork.current.register_clean @subject
+                context 'when foreign key is nil' do
+                  it 'removes itself from current_parent collection' do
+                    entity.id = BSON::ObjectId.new
+                    Persistence::UnitOfWork.current.register_clean @subject
 
-                  described_class.parent_node :stub_entity
+                    described_class.parent_node :stub_entity
 
-                  @subject.stub_entity = entity
+                    @subject.stub_entity = entity
 
-                  expect_any_instance_of(DocumentManager).not_to receive(:remove).with(any_args)
-                  expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
-                  expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
+                    expect_any_instance_of(DocumentManager).not_to receive(:remove).with(any_args)
+                    expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
+                    expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
+                    expect_any_instance_of(DocumentManager).not_to receive(:find).with(any_args)
 
-                  @subject.stub_entity_id = nil
+                    @subject.stub_entity_id = nil
 
-                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                    expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                  end
                 end
 
-                it 'removes itself from current_parent collection when setting foreign_key to other' do
-                  entity.id    = BSON::ObjectId.new
-                  other_parent = StubEntity.new(id: BSON::ObjectId.new)
-                  Persistence::UnitOfWork.current.register_clean @subject
-                  described_class.parent_node :stub_entity
+                context 'when foreign key is other' do
+                  it 'removes itself from current_parent collection, appends itself to new parent collection' do
+                    entity.id    = BSON::ObjectId.new
+                    other_parent = StubEntity.new(id: BSON::ObjectId.new)
+                    Persistence::UnitOfWork.current.register_clean @subject
+                    described_class.parent_node :stub_entity
 
-                  @subject.stub_entity = entity
+                    @subject.stub_entity = entity
 
-                  expect_any_instance_of(DocumentManager).not_to receive(:remove).with(any_args)
-                  expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
-                  expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
+                    expect_any_instance_of(DocumentManager).not_to receive(:remove).with(any_args)
+                    expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
+                    expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
+                    expect(DocumentManager).to receive(:new).once.and_return document_manager
 
-                  @subject.stub_entity_id = other_parent.id
+                    expect(
+                      document_manager
+                    ).to receive(:find).once.with(StubEntity, other_parent.id).and_return other_parent
 
-                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                    expect(other_parent).to receive_message_chain(
+                                              :test_classes, :push
+                                            ).with(@subject)
+
+                    @subject.stub_entity_id = other_parent.id
+
+                    expect(@subject.instance_variable_get(:@stub_entity)).to eql other_parent
+                  end
                 end
               end
 

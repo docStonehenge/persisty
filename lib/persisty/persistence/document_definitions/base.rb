@@ -335,16 +335,31 @@ module Persisty
         end
 
         def handle_current_parent_change(parent_node_name, new_parent_id)
-          return unless (current_parent = instance_variable_get(:"@#{parent_node_name}"))
-          return unless current_parent.id and current_parent.id != new_parent_id
+          current_parent = instance_variable_get(:"@#{parent_node_name}")
+          return unless different_parent?(new_parent_id, current_parent)
 
           if (collection = current_parent.child_nodes_collections_map.key(self.class))
-            current_parent.public_send(collection).remove(self)
+            detach_from_current_parent_collection(current_parent, collection, parent_node_name)
+            change_parent_collection(collection, parent_node_name, new_parent_id)
           else
             current_parent.public_send("#{current_parent.child_nodes_map.key(self.class)}=", nil)
+            instance_variable_set(:"@#{parent_node_name}", nil)
           end
+        end
 
-          instance_variable_set(:"@#{parent_node_name}", nil)
+        def different_parent?(new_parent_id, current_parent)
+          return false unless current_parent
+          current_parent.id and current_parent.id != new_parent_id
+        end
+
+        def detach_from_current_parent_collection(current_parent, collection, parent_node)
+          current_parent.public_send(collection).remove(self)
+          instance_variable_set(:"@#{parent_node}", nil)
+        end
+
+        def change_parent_collection(collection, parent_node, new_parent_id)
+          return unless new_parent_id
+          public_send(parent_node).public_send(collection).push(self)
         end
 
         def initialize_fields_with(attributes)
