@@ -6,7 +6,7 @@ module Persisty
 
         let(:uow) { double(:uow) }
         let!(:id) { BSON::ObjectId.new }
-        let(:document_manager) { double(:document_manager) }
+        let(:repository) { double(:repository) }
 
         describe 'ClassMethods' do
           class ::TestClass
@@ -70,13 +70,13 @@ module Persisty
 
                   expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
 
-                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+                  expect(
+                    Repositories::Registry
+                  ).to receive(:[]).once.with(StubEntity).and_return repository
 
                   expect(
-                    document_manager
-                  ).to receive(:find_all).once.with(
-                         StubEntity, filter: { class_id: @subject.id }
-                       ).and_return [entity]
+                    repository
+                  ).to receive(:find_all).once.with(filter: { class_id: @subject.id }).and_return [entity]
 
                   expect(@subject.stub_entity).to eql entity
                   expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
@@ -93,19 +93,19 @@ module Persisty
 
                   expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
 
-                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+                  expect(
+                    Repositories::Registry
+                  ).to receive(:[]).once.with(StubEntity).and_return repository
 
                   expect(
-                    document_manager
-                  ).to receive(:find_all).once.with(
-                         StubEntity, filter: { class_id: @subject.id }
-                       ).and_return []
+                    repository
+                  ).to receive(:find_all).once.with(filter: { class_id: @subject.id }).and_return []
 
                   expect(@subject.stub_entity).to be_nil
                   expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
                 end
 
-                it "doesn't call DocumentManager when child node is already present" do
+                it "doesn't call repository when child node is already present" do
                   StubEntity.parent_node :test_class
 
                   described_class.child_node :stub_entity
@@ -114,7 +114,7 @@ module Persisty
                   entity.id   = BSON::ObjectId.new
                   @subject.instance_variable_set '@stub_entity', entity
 
-                  expect(DocumentManager).not_to receive(:new)
+                  expect(Repositories::Registry).not_to receive(:[]).with(any_args)
 
                   expect(@subject.stub_entity).to eql entity
                   expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
@@ -131,8 +131,8 @@ module Persisty
                   @subject.instance_variable_set '@stub_entity', previous_child
 
                   expect(previous_child).to receive(:test_class_id=).once.with(nil)
-                  expect(DocumentManager).to receive(:new).once.and_return document_manager
-                  expect(document_manager).to receive(:remove).once.with(previous_child)
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:remove).once.with(previous_child)
 
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
@@ -145,8 +145,7 @@ module Persisty
 
                   @subject.id = BSON::ObjectId.new
 
-                  expect(DocumentManager).not_to receive(:new)
-
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.stub_entity = entity
@@ -161,7 +160,7 @@ module Persisty
 
                   @subject.id = BSON::ObjectId.new
 
-                  expect(DocumentManager).not_to receive(:new)
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
 
                   @subject.stub_entity = nil
                 end
@@ -176,7 +175,7 @@ module Persisty
                   @subject.instance_variable_set '@stub_entity', entity
 
                   expect(entity).not_to receive(:test_class=).with(any_args)
-                  expect(DocumentManager).not_to receive(:new)
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
 
                   @subject.stub_entity = entity
                 end
@@ -192,7 +191,7 @@ module Persisty
                   entity.test_class = another_parent
 
                   expect(entity).not_to receive(:test_class=).with(any_args)
-                  expect(DocumentManager).not_to receive(:new)
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
 
                   @subject.stub_entity = nil
                 end
@@ -249,13 +248,13 @@ module Persisty
 
                   expect(@subject.instance_variable_get(:@foo)).to be_nil
 
-                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+                  expect(
+                    Repositories::Registry
+                  ).to receive(:[]).once.with(StubEntity).and_return repository
 
                   expect(
-                    document_manager
-                  ).to receive(:find_all).once.with(
-                         StubEntity, filter: { parent_name_id: @subject.id }
-                       ).and_return [entity]
+                    repository
+                  ).to receive(:find_all).once.with(filter: { parent_name_id: @subject.id }).and_return [entity]
 
                   expect(@subject.foo).to eql entity
                   expect(@subject.instance_variable_get(:@foo)).to eql entity
@@ -272,19 +271,19 @@ module Persisty
 
                   expect(@subject.instance_variable_get(:@foo)).to be_nil
 
-                  expect(DocumentManager).to receive(:new).once.and_return document_manager
+                  expect(
+                    Repositories::Registry
+                  ).to receive(:[]).once.with(StubEntity).and_return repository
 
                   expect(
-                    document_manager
-                  ).to receive(:find_all).once.with(
-                         StubEntity, filter: { class_id: @subject.id }
-                       ).and_return []
+                    repository
+                  ).to receive(:find_all).once.with(filter: { class_id: @subject.id }).and_return []
 
                   expect(@subject.foo).to be_nil
                   expect(@subject.instance_variable_get(:@foo)).to be_nil
                 end
 
-                it "doesn't call DocumentManager when child node is already present" do
+                it "doesn't call repository when child node is already present" do
                   StubEntity.parent_node :test_class
 
                   described_class.child_node :foo, class_name: 'StubEntity'
@@ -294,7 +293,7 @@ module Persisty
 
                   @subject.instance_variable_set '@foo', entity
 
-                  expect(DocumentManager).not_to receive(:new)
+                  expect(Repositories::Registry).not_to receive(:[]).with(any_args)
 
                   expect(@subject.foo).to eql entity
                   expect(@subject.instance_variable_get(:@foo)).to eql entity
@@ -311,9 +310,8 @@ module Persisty
                   @subject.instance_variable_set '@foo', previous_child
 
                   expect(previous_child).to receive(:test_class=).once.with(nil)
-                  expect(DocumentManager).to receive(:new).once.and_return document_manager
-                  expect(document_manager).to receive(:remove).once.with(previous_child)
-
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:remove).once.with(previous_child)
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.foo = entity
@@ -325,8 +323,7 @@ module Persisty
 
                   @subject.id = BSON::ObjectId.new
 
-                  expect(DocumentManager).not_to receive(:new)
-
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.foo = entity
@@ -341,7 +338,7 @@ module Persisty
 
                   @subject.id = BSON::ObjectId.new
 
-                  expect(DocumentManager).not_to receive(:new)
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
 
                   @subject.foo = nil
                 end
@@ -356,7 +353,7 @@ module Persisty
                   @subject.instance_variable_set '@foo', entity
 
                   expect(entity).not_to receive(:test_class=).with(any_args)
-                  expect(DocumentManager).not_to receive(:new)
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
 
                   @subject.foo = entity
                 end
@@ -412,10 +409,10 @@ module Persisty
 
                     @subject.stub_entity = entity
 
-                    expect_any_instance_of(DocumentManager).not_to receive(:remove).with(any_args)
+                    expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:remove)
                     expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
                     expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
-                    expect_any_instance_of(DocumentManager).not_to receive(:find).with(any_args)
+                    expect(Repositories::Registry).not_to receive(:[]).with(any_args)
 
                     @subject.stub_entity_id = nil
 
@@ -432,14 +429,14 @@ module Persisty
 
                     @subject.stub_entity = entity
 
-                    expect_any_instance_of(DocumentManager).not_to receive(:remove).with(any_args)
+                    expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:remove)
                     expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
                     expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
-                    expect(DocumentManager).to receive(:new).once.and_return document_manager
+                    expect(Repositories::Registry).to receive(:[]).once.with(StubEntity).and_return repository
 
                     expect(
-                      document_manager
-                    ).to receive(:find).once.with(StubEntity, other_parent.id).and_return other_parent
+                      repository
+                    ).to receive(:find).once.with(other_parent.id).and_return other_parent
 
                     expect(other_parent).to receive_message_chain(
                                               :test_classes, :push
@@ -490,11 +487,11 @@ module Persisty
                     @subject.stub_entity_id = entity.id
                     expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
 
-                    expect(DocumentManager).to receive(:new).once.and_return document_manager
+                    expect(Repositories::Registry).to receive(:[]).once.with(StubEntity).and_return repository
 
                     expect(
-                      document_manager
-                    ).to receive(:find).once.with(StubEntity, entity.id).and_return entity
+                      repository
+                    ).to receive(:find).once.with(entity.id).and_return entity
 
                     expect(@subject.stub_entity).to eql entity
                     expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
@@ -526,7 +523,7 @@ module Persisty
                     expect {
                       @subject.stub_entity = nil
 
-                      expect(DocumentManager).not_to receive(:new)
+                      expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:remove)
                       expect(@subject.stub_entity).to be_nil
 
                       expect(
@@ -576,8 +573,9 @@ module Persisty
                     described_class.parent_node :stub_entity
                     StubEntity.child_node :test_class
 
-                    expect(DocumentManager).to receive(:new).once.and_return document_manager
-                    expect(document_manager).to receive(:remove).once.with(@subject)
+                    expect_any_instance_of(
+                      Persistence::UnitOfWork
+                    ).to receive(:remove).once.with(@subject)
 
                     entity.test_class = @subject
                     @subject.stub_entity = entity
@@ -594,7 +592,9 @@ module Persisty
                     described_class.parent_node :stub_entity
                     StubEntity.child_node :test_class
 
-                    expect_any_instance_of(DocumentManager).not_to receive(:remove).with(@subject)
+                    expect_any_instance_of(
+                      Persistence::UnitOfWork
+                    ).not_to receive(:remove).with(@subject)
 
                     @subject.stub_entity = entity
                     @subject.stub_entity_id = other_parent.id
@@ -609,7 +609,9 @@ module Persisty
                     described_class.parent_node :stub_entity
                     StubEntity.child_node :test_class
 
-                    expect_any_instance_of(DocumentManager).not_to receive(:remove).with(@subject)
+                    expect_any_instance_of(
+                      Persistence::UnitOfWork
+                    ).not_to receive(:remove).with(@subject)
 
                     entity.test_class = @subject
                     @subject.stub_entity_id = entity.id
@@ -651,11 +653,13 @@ module Persisty
                     @subject.foo_id = entity.id
                     expect(@subject.instance_variable_get(:@foo)).to be_nil
 
-                    expect(DocumentManager).to receive(:new).once.and_return document_manager
+                    expect(
+                      Repositories::Registry
+                    ).to receive(:[]).once.with(StubEntity).and_return repository
 
                     expect(
-                      document_manager
-                    ).to receive(:find).once.with(StubEntity, entity.id).and_return entity
+                      repository
+                    ).to receive(:find).once.with(entity.id).and_return entity
 
                     expect(@subject.foo).to eql entity
                     expect(@subject.instance_variable_get(:@foo)).to eql entity
@@ -687,7 +691,7 @@ module Persisty
                     expect {
                       @subject.foo = nil
 
-                      expect(DocumentManager).not_to receive(:new)
+                      expect(Repositories::Registry).not_to receive(:[]).with(any_args)
                       expect(@subject.foo).to be_nil
 
                       expect(

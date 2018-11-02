@@ -281,8 +281,8 @@ module Persisty
           def define_parent_node_reader(name, parent_node_klass, foreign_key_field)
             define_method("#{name}") do
               if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{name}").nil?
-                parent = DocumentManager.new.find(
-                  parent_node_klass, instance_variable_get("@#{foreign_key_field}")
+                parent = Repositories::Registry[parent_node_klass].find(
+                  instance_variable_get("@#{foreign_key_field}")
                 )
 
                 instance_variable_set("@#{name}", parent)
@@ -296,8 +296,8 @@ module Persisty
           def define_single_child_node_reader(child_name, child_klass, child_set_parent_node)
             define_method("#{child_name}") do
               if instance_variable_get("@#{child_name}").nil?
-                child_obj = DocumentManager.new.find_all(
-                  child_klass, filter: { :"#{child_set_parent_node}_id" => id }
+                child_obj = Repositories::Registry[child_klass].find_all(
+                  filter: { :"#{child_set_parent_node}_id" => id }
                 ).first
 
                 instance_variable_set("@#{child_name}", child_obj)
@@ -331,7 +331,7 @@ module Persisty
         def handle_previous_child_removal(previous_child, parent_node_name)
           return unless previous_child and previous_child.public_send(parent_node_name) == self
           previous_child.public_send("#{parent_node_name}=", nil)
-          DocumentManager.new.remove(previous_child)
+          Persistence::UnitOfWork.current.remove(previous_child)
         end
 
         def handle_current_parent_change(parent_node_name, new_parent_id)
