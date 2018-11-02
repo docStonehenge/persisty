@@ -5,12 +5,15 @@ module Persisty
 
       let(:model) { double(:model, id: BSON::ObjectId.new, class: String) }
       let(:repository) { double(:repository) }
+      let(:uow) { double(:uow) }
 
       context 'when collection is nil' do
         subject { described_class.new(model, StubEntity) }
 
         describe '#reload' do
           it 'clears collection variable, loads collection and returns subject' do
+            expect(Persistence::UnitOfWork).not_to receive(:current)
+
             expect(
               Repositories::Registry
             ).to receive(:[]).once.with(StubEntity).and_return repository
@@ -253,7 +256,13 @@ module Persisty
         subject { described_class.new(model, StubEntity, collection) }
 
         describe '#reload' do
-          it 'clears collection variable, loads collection and returns subject' do
+          it 'detaches entities, clears collection variable, loads collection and returns subject' do
+            expect(
+              Persistence::UnitOfWork
+            ).to receive(:current).once.and_return uow
+
+            expect(uow).to receive(:detach).once.with(entity)
+
             expect(
               Repositories::Registry
             ).to receive(:[]).once.with(StubEntity).and_return repository
