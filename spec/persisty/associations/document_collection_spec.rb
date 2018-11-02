@@ -4,7 +4,7 @@ module Persisty
       include_context 'StubEntity'
 
       let(:model) { double(:model, id: BSON::ObjectId.new, class: String) }
-      let(:document_manager) { double(:document_manager) }
+      let(:repository) { double(:repository) }
 
       context 'when collection is nil' do
         subject { described_class.new(model, StubEntity) }
@@ -12,12 +12,12 @@ module Persisty
         describe '#reload' do
           it 'clears collection variable, loads collection and returns subject' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity]
 
             expect(subject.reload).to eql subject
           end
@@ -28,12 +28,12 @@ module Persisty
 
           before do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return collection
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return collection
           end
 
           context 'when entity has ID' do
@@ -81,12 +81,12 @@ module Persisty
 
           before do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return collection
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return collection
           end
 
           context 'when entity has ID' do
@@ -132,12 +132,12 @@ module Persisty
         describe '#all' do
           it 'calls repository to load collection and returns all objects found' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity]
 
             expect(subject.all).to eql [entity]
           end
@@ -146,12 +146,12 @@ module Persisty
         describe '#each' do
           it 'calls repository to load collection and yields each object loaded' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity]
 
             expect { |b| subject.each(&b) }.to yield_with_args(entity)
           end
@@ -160,12 +160,12 @@ module Persisty
         describe '#[] index' do
           it 'calls repository to load collection and returns object on index' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity, double]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity, double]
 
             expect(subject[0]).to eql entity
           end
@@ -174,12 +174,12 @@ module Persisty
         describe '#first' do
           it 'calls repository to find entities limiting at one and returns first object' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }, limit: 1
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }, limit: 1
+                                  ).and_return [entity]
 
             expect(subject.first).to eql entity
           end
@@ -190,13 +190,13 @@ module Persisty
 
           it 'calls repository to return entity limiting at one and sorting ID descending' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id },
-                                          sort: { _id: -1 }, limit: 1
-                                        ).and_return [last_entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id },
+                                    sort: { _id: -1 }, limit: 1
+                                  ).and_return [last_entity]
 
             expect(subject.last).to eql last_entity
           end
@@ -207,12 +207,12 @@ module Persisty
 
           it 'calls repository to load collection and transforms each object to mongo_document' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity]
 
             expect(subject._as_mongo_document).to include entity_document
           end
@@ -221,12 +221,12 @@ module Persisty
         describe '#size' do
           it 'calls repository to load collection and returns collection size' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity]
 
             expect(subject.size).to eql 1
           end
@@ -235,12 +235,12 @@ module Persisty
         describe '#count' do
           it 'calls repository to load collection and returns collection count' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity]
 
             expect(subject.count).to eql 1
           end
@@ -255,12 +255,12 @@ module Persisty
         describe '#reload' do
           it 'clears collection variable, loads collection and returns subject' do
             expect(
-              DocumentManager
-            ).to receive(:new).once.and_return document_manager
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
 
-            expect(document_manager).to receive(:find_all).once.with(
-                                          StubEntity, filter: { string_id: model.id }
-                                        ).and_return [entity]
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: model.id }
+                                  ).and_return [entity]
 
             expect(subject.reload).to eql subject
           end
@@ -270,7 +270,7 @@ module Persisty
           let(:other_entity) { StubEntity.new }
 
           before do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
           end
 
           context 'when entity has ID' do
@@ -315,7 +315,7 @@ module Persisty
           let(:other_entity) { StubEntity.new }
 
           before do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
           end
 
           context 'when entity has ID' do
@@ -358,14 +358,14 @@ module Persisty
 
         describe '#all' do
           it 'returns collection without trying to load objects' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject.all).to eql [entity]
           end
         end
 
         describe '#each' do
           it 'yields each object from already loaded collection' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect { |b| subject.each(&b) }.to yield_with_args(entity)
           end
         end
@@ -374,7 +374,7 @@ module Persisty
           subject { described_class.new(model, StubEntity, [entity, double]) }
 
           it 'returns object on index' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject[0]).to eql entity
           end
         end
@@ -383,7 +383,7 @@ module Persisty
           subject { described_class.new(model, StubEntity, [entity, double]) }
 
           it 'returns first object on collection' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject.first).to eql entity
           end
         end
@@ -394,7 +394,7 @@ module Persisty
           let(:last_entity) { double }
 
           it 'returns last object on collection' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject.last).to eql last_entity
           end
         end
@@ -403,21 +403,21 @@ module Persisty
           let(:entity_document) { entity._as_mongo_document }
 
           it 'transforms each object to mongo_document' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject._as_mongo_document).to include entity_document
           end
         end
 
         describe '#size' do
           it 'returns collection size' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject.size).to eql 1
           end
         end
 
         describe '#count' do
           it 'returns collection count' do
-            expect(DocumentManager).not_to receive(:new)
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject.count).to eql 1
           end
         end

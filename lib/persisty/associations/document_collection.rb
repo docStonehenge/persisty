@@ -71,14 +71,9 @@ module Persisty
       end
 
       def find_all_entities(**query_options)
-        document_manager.find_all(
-          @document_class,
+        Repositories::Registry[@document_class].find_all(
           filter: { foreign_key => @parent.id }, **query_options
         )
-      end
-
-      def document_manager
-        @document_manager ||= DocumentManager.new
       end
 
       def foreign_key
