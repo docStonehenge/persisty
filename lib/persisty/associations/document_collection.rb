@@ -43,6 +43,18 @@ module Persisty
 
       alias << push
 
+      def remove(entity)
+        load_collection
+
+        return unless collection.delete(entity)
+
+        entity_foreign_key = entity.public_send(foreign_key)
+
+        if entity_foreign_key.nil? or entity_foreign_key == @parent.id
+          Persistence::UnitOfWork.current.register_removed(entity)
+        end
+      end
+
       def all
         load_collection
         collection

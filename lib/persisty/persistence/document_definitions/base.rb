@@ -331,7 +331,7 @@ module Persisty
         def handle_previous_child_removal(previous_child, parent_node_name)
           return unless previous_child and previous_child.public_send(parent_node_name) == self
           previous_child.public_send("#{parent_node_name}=", nil)
-          Persistence::UnitOfWork.current.remove(previous_child)
+          Persistence::UnitOfWork.current.register_removed(previous_child)
         end
 
         def handle_current_parent_change(parent_node_name, new_parent_id)

@@ -3,12 +3,12 @@ module Persisty
     describe DocumentCollection do
       include_context 'StubEntity'
 
-      let(:model) { double(:model, id: BSON::ObjectId.new, class: String) }
+      let(:parent) { double(:parent, id: BSON::ObjectId.new, class: String) }
       let(:repository) { double(:repository) }
       let(:uow) { double(:uow) }
 
       context 'when collection is nil' do
-        subject { described_class.new(model, StubEntity) }
+        subject { described_class.new(parent, StubEntity) }
 
         describe '#reload' do
           it 'clears collection variable, loads collection and returns subject' do
@@ -19,10 +19,91 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity]
 
             expect(subject.reload).to eql subject
+          end
+        end
+
+        describe '#remove entity' do
+          let(:other_entity) { StubEntity.new }
+
+          before do
+            expect(
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
+
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: parent.id }
+                                  ).and_return collection
+          end
+
+          context 'when collection includes entity to be removed' do
+            let(:collection) { [other_entity] }
+
+            context 'when entity has foreign key equal to collection parent' do
+              before do
+                allow(other_entity).to receive(:string_id).and_return parent.id
+              end
+
+              it 'removes from collection and calls UnitOfWork to remove entity' do
+                expect(
+                  Persistence::UnitOfWork
+                ).to receive(:current).once.and_return uow
+
+                expect(uow).to receive(:register_removed).once.with(other_entity)
+
+                subject.remove other_entity
+
+                expect(collection).not_to include other_entity
+              end
+            end
+
+            context 'when entity has nil foreign key' do
+              before do
+                allow(other_entity).to receive(:string_id).and_return nil
+              end
+
+              it 'removes from collection and calls UnitOfWork to remove entity' do
+                expect(
+                  Persistence::UnitOfWork
+                ).to receive(:current).once.and_return uow
+
+                expect(uow).to receive(:register_removed).once.with(other_entity)
+
+                subject.remove other_entity
+
+                expect(collection).not_to include other_entity
+              end
+            end
+
+            context 'when entity has foreign key different from parent' do
+              before do
+                allow(other_entity).to receive(:string_id).and_return 123
+              end
+
+              it "removes from collection but doesn't call UnitOfWork to remove entity" do
+                expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                subject.remove other_entity
+
+                expect(collection).not_to include other_entity
+              end
+            end
+          end
+
+          context "when collection doesn't include entity" do
+            let(:collection) { [] }
+
+            it 'halts execution' do
+              expect {
+                expect(other_entity).not_to receive(:string_id)
+                expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                subject.remove other_entity
+              }.not_to change(collection, :size)
+            end
           end
         end
 
@@ -35,7 +116,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return collection
           end
 
@@ -88,7 +169,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return collection
           end
 
@@ -139,7 +220,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity]
 
             expect(subject.all).to eql [entity]
@@ -153,7 +234,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity]
 
             expect { |b| subject.each(&b) }.to yield_with_args(entity)
@@ -167,7 +248,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity, double]
 
             expect(subject[0]).to eql entity
@@ -181,7 +262,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }, limit: 1
+                                    filter: { string_id: parent.id }, limit: 1
                                   ).and_return [entity]
 
             expect(subject.first).to eql entity
@@ -197,7 +278,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id },
+                                    filter: { string_id: parent.id },
                                     sort: { _id: -1 }, limit: 1
                                   ).and_return [last_entity]
 
@@ -214,7 +295,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity]
 
             expect(subject._as_mongo_document).to include entity_document
@@ -228,7 +309,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity]
 
             expect(subject.size).to eql 1
@@ -242,7 +323,7 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity]
 
             expect(subject.count).to eql 1
@@ -253,7 +334,7 @@ module Persisty
       context "when collection isn't nil" do
         let(:collection) { [entity] }
 
-        subject { described_class.new(model, StubEntity, collection) }
+        subject { described_class.new(parent, StubEntity, collection) }
 
         describe '#reload' do
           it 'detaches entities, clears collection variable, loads collection and returns subject' do
@@ -268,10 +349,86 @@ module Persisty
             ).to receive(:[]).once.with(StubEntity).and_return repository
 
             expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: model.id }
+                                    filter: { string_id: parent.id }
                                   ).and_return [entity]
 
             expect(subject.reload).to eql subject
+          end
+        end
+
+
+        describe '#remove entity' do
+          let(:other_entity) { StubEntity.new }
+
+          before do
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
+          end
+
+          context 'when collection includes entity to be removed' do
+            let(:collection) { [other_entity] }
+
+            context 'when entity has foreign key equal to collection parent' do
+              before do
+                allow(other_entity).to receive(:string_id).and_return parent.id
+              end
+
+              it 'removes from collection and calls UnitOfWork to remove entity' do
+                expect(
+                  Persistence::UnitOfWork
+                ).to receive(:current).once.and_return uow
+
+                expect(uow).to receive(:register_removed).once.with(other_entity)
+
+                subject.remove other_entity
+
+                expect(collection).not_to include other_entity
+              end
+            end
+
+            context 'when entity has nil foreign key' do
+              before do
+                allow(other_entity).to receive(:string_id).and_return nil
+              end
+
+              it 'removes from collection and calls UnitOfWork to remove entity' do
+                expect(
+                  Persistence::UnitOfWork
+                ).to receive(:current).once.and_return uow
+
+                expect(uow).to receive(:register_removed).once.with(other_entity)
+
+                subject.remove other_entity
+
+                expect(collection).not_to include other_entity
+              end
+            end
+
+            context 'when entity has foreign key different from parent' do
+              before do
+                allow(other_entity).to receive(:string_id).and_return 123
+              end
+
+              it "removes from collection but doesn't call UnitOfWork to remove entity" do
+                expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                subject.remove other_entity
+
+                expect(collection).not_to include other_entity
+              end
+            end
+          end
+
+          context "when collection doesn't include entity" do
+            let(:collection) { [] }
+
+            it 'halts execution' do
+              expect {
+                expect(other_entity).not_to receive(:string_id)
+                expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                subject.remove other_entity
+              }.not_to change(collection, :size)
+            end
           end
         end
 
@@ -299,7 +456,7 @@ module Persisty
             context 'when collection already include entity' do
               let(:collection) { [other_entity, entity] }
 
-              subject { described_class.new(model, StubEntity, collection) }
+              subject { described_class.new(parent, StubEntity, collection) }
 
               it 'skips pushing and sorting on collection' do
                 subject << other_entity
@@ -344,7 +501,7 @@ module Persisty
             context 'when collection already include entity' do
               let(:collection) { [other_entity, entity] }
 
-              subject { described_class.new(model, StubEntity, collection) }
+              subject { described_class.new(parent, StubEntity, collection) }
 
               it 'skips pushing and sorting on collection' do
                 subject.push other_entity
@@ -380,7 +537,7 @@ module Persisty
         end
 
         describe '#[] index' do
-          subject { described_class.new(model, StubEntity, [entity, double]) }
+          subject { described_class.new(parent, StubEntity, [entity, double]) }
 
           it 'returns object on index' do
             expect(Repositories::Registry).not_to receive(:[]).with(any_args)
@@ -389,7 +546,7 @@ module Persisty
         end
 
         describe '#first' do
-          subject { described_class.new(model, StubEntity, [entity, double]) }
+          subject { described_class.new(parent, StubEntity, [entity, double]) }
 
           it 'returns first object on collection' do
             expect(Repositories::Registry).not_to receive(:[]).with(any_args)
@@ -398,7 +555,7 @@ module Persisty
         end
 
         describe '#last' do
-          subject { described_class.new(model, StubEntity, [entity, last_entity]) }
+          subject { described_class.new(parent, StubEntity, [entity, last_entity]) }
 
           let(:last_entity) { double }
 

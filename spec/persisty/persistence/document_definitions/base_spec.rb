@@ -132,7 +132,7 @@ module Persisty
 
                   expect(previous_child).to receive(:test_class_id=).once.with(nil)
                   expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
-                  expect(uow).to receive(:remove).once.with(previous_child)
+                  expect(uow).to receive(:register_removed).once.with(previous_child)
 
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
@@ -311,7 +311,7 @@ module Persisty
 
                   expect(previous_child).to receive(:test_class=).once.with(nil)
                   expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
-                  expect(uow).to receive(:remove).once.with(previous_child)
+                  expect(uow).to receive(:register_removed).once.with(previous_child)
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
                   @subject.foo = entity
@@ -409,7 +409,7 @@ module Persisty
 
                     @subject.stub_entity = entity
 
-                    expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:remove)
+                    expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:register_removed)
                     expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
                     expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
                     expect(Repositories::Registry).not_to receive(:[]).with(any_args)
@@ -429,7 +429,7 @@ module Persisty
 
                     @subject.stub_entity = entity
 
-                    expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:remove)
+                    expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:register_removed)
                     expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
                     expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
                     expect(Repositories::Registry).to receive(:[]).once.with(StubEntity).and_return repository
@@ -523,7 +523,7 @@ module Persisty
                     expect {
                       @subject.stub_entity = nil
 
-                      expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:remove)
+                      expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:register_removed)
                       expect(@subject.stub_entity).to be_nil
 
                       expect(
@@ -575,7 +575,7 @@ module Persisty
 
                     expect_any_instance_of(
                       Persistence::UnitOfWork
-                    ).to receive(:remove).once.with(@subject)
+                    ).to receive(:register_removed).once.with(@subject)
 
                     entity.test_class = @subject
                     @subject.stub_entity = entity
@@ -594,7 +594,7 @@ module Persisty
 
                     expect_any_instance_of(
                       Persistence::UnitOfWork
-                    ).not_to receive(:remove).with(@subject)
+                    ).not_to receive(:register_removed).with(@subject)
 
                     @subject.stub_entity = entity
                     @subject.stub_entity_id = other_parent.id
@@ -611,7 +611,7 @@ module Persisty
 
                     expect_any_instance_of(
                       Persistence::UnitOfWork
-                    ).not_to receive(:remove).with(@subject)
+                    ).not_to receive(:register_removed).with(@subject)
 
                     entity.test_class = @subject
                     @subject.stub_entity_id = entity.id
