@@ -468,11 +468,18 @@ module Persisty
           end
 
           context "when entity doesn't have ID" do
-            before { entity.id = BSON::ObjectId.new }
-
             it 'pushes entity to collection, leaving pushed entity in last' do
+              entity.id = BSON::ObjectId.new
+
               subject << other_entity
               expect(collection).to eql([entity, other_entity])
+            end
+
+            context "when all entities on collection doesn't have ID" do
+              it 'pushes entity to collection, leaving pushed entity in last' do
+                subject << other_entity
+                expect(collection).to eql([entity, other_entity])
+              end
             end
           end
         end
@@ -513,11 +520,18 @@ module Persisty
           end
 
           context "when entity doesn't have ID" do
-            before { entity.id = BSON::ObjectId.new }
-
             it 'pushes entity to collection, leaving pushed entity in last' do
+              entity.id = BSON::ObjectId.new
+
               subject.push other_entity
               expect(collection).to eql([entity, other_entity])
+            end
+
+            context "when all entities on collection doesn't have ID" do
+              it 'pushes entity to collection, leaving pushed entity in last' do
+                subject << other_entity
+                expect(collection).to eql([entity, other_entity])
+              end
             end
           end
         end

@@ -32,10 +32,10 @@ module Persisty
       def push(entity)
         load_collection
 
-        unless collection.map(&:id).include? entity.id
-          collection << entity
-          collection.sort! { |x, y| x <=> y }
-        end
+        return if include? entity
+
+        collection << entity
+        collection.sort! { |x, y| x <=> y }
       rescue Persistence::Entities::ComparisonError
       ensure
         collection
@@ -99,6 +99,12 @@ module Persisty
         (
           StringModifiers::Underscorer.new.underscore("#{@parent.class}") + '_id'
         ).to_sym
+      end
+
+      def include?(entity)
+        collection_ids = collection.map(&:id)
+        return false if (collection_ids.any?(&:nil?) and entity.id.nil?)
+        collection_ids.include? entity.id
       end
     end
   end
