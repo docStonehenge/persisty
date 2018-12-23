@@ -146,27 +146,25 @@ module Persisty
           end
 
           def child_node(name, class_name: nil)
-            child, child_klass = normalize_node_identification(name, class_name)
-            register_defined_node(:child_node, child, child_klass)
-            child_set_parent_node = parent_node_on(child_klass)
+            node, klass = parse_node_identification(name, class_name)
+            register_defined_node(:child_node, node, klass)
+            child_set_parent_node = parent_node_on(klass)
 
             instance_eval do
-              define_single_child_node_reader(child, child_klass, child_set_parent_node)
-              define_single_child_node_writer(child, child_klass, child_set_parent_node)
+              define_single_child_node_reader(node, klass, child_set_parent_node)
+              define_single_child_node_writer(node, klass, child_set_parent_node)
             end
           end
 
           def parent_node(name, class_name: nil)
-            parent_name, parent_klass = normalize_node_identification(name, class_name)
-            register_defined_node(:parent_node, parent_name, parent_klass)
+            node, klass = parse_node_identification(name, class_name)
+            register_defined_node(:parent_node, node, klass)
 
-            foreign_key_field = (parent_name + '_id').to_sym
+            foreign_key_field = (node + '_id').to_sym
             register_defined_field foreign_key_field, BSON::ObjectId
             attr_reader foreign_key_field
 
-            define_parent_node_handling_methods(
-              parent_name, parent_klass, foreign_key_field
-            )
+            define_parent_node_handling_methods(node, klass, foreign_key_field)
           end
 
           # Defines accessors methods for field <tt>name</tt>, considering <tt>type</tt> to use
@@ -205,20 +203,14 @@ module Persisty
 
           private
 
-          def normalize_node_identification(node_name, class_name)
-            name  = StringModifiers::Underscorer.new.underscore(node_name.to_s)
-            klass = determine_node_class(name, class_name)
-
-            [name, klass]
+          def parse_node_identification(node_name, class_name)
+            node_parser = NodeParser.new
+            node_parser.parse_node_identification(node_name, class_name)
+            [node_parser.node_name, node_parser.node_class]
           end
 
-          def determine_node_class(node_name, class_name)
-            return Object.const_get(class_name.to_s) if class_name
-            Object.const_get(StringModifiers::Camelizer.new.camelize(node_name))
-          end
-
-          def parent_node_on(child_klass)
-            unless (node_name = child_klass.parent_nodes_map.key(self))
+          def parent_node_on(klass)
+            unless (node_name = klass.parent_nodes_map.key(self))
               raise Errors::NoParentNodeError
             end
 
@@ -230,15 +222,15 @@ module Persisty
             @fields[name] = { type: type }
           end
 
-          def register_defined_node(node_type, name, node_klass)
+          def register_defined_node(node_type, name, node_class)
             instance_variable_get("@#{node_type}s_list").push(name.to_sym)
-            instance_variable_get("@#{node_type}s_map")[name.to_sym] = node_klass
+            instance_variable_get("@#{node_type}s_map")[name.to_sym] = node_class
           end
 
           def define_writer_method_for(attribute, type) # :nodoc:
             instance_eval do
               define_method("#{attribute}=") do |value|
-                new_value = Entities::Field.new(type: type, value: value).coerce
+                new_value = Entities::Field.(type: type, value: value)
                 handle_registration_for_changes_on attribute do
                   instance_variable_set(:"@#{attribute}", new_value)
                 end
@@ -246,10 +238,10 @@ module Persisty
             end
           end
 
-          def define_parent_node_handling_methods(parent_node_name, parent_node_klass, foreign_key_field)
+          def define_parent_node_handling_methods(parent_node_name, parent_node_class, foreign_key_field)
             instance_eval do
               define_method("#{foreign_key_field}=") do |id|
-                new_value = Entities::Field.new(type: BSON::ObjectId, value: id).coerce
+                new_value = Entities::Field.(type: BSON::ObjectId, value: id)
 
                 return if instance_variable_get(:"@#{foreign_key_field}") == new_value
 
@@ -261,27 +253,27 @@ module Persisty
               end
 
               define_parent_node_writer(
-                parent_node_name, parent_node_klass, foreign_key_field
+                parent_node_name, parent_node_class, foreign_key_field
               )
 
               define_parent_node_reader(
-                parent_node_name, parent_node_klass, foreign_key_field
+                parent_node_name, parent_node_class, foreign_key_field
               )
             end
           end
 
-          def define_parent_node_writer(name, parent_node_klass, foreign_key_field)
+          def define_parent_node_writer(name, parent_node_class, foreign_key_field)
             define_method("#{name}=") do |parent_object|
-              check_object_type_based_on(parent_node_klass, name, parent_object)
+              NodeAssignments::CheckObjectType.(parent_node_class, name, parent_object)
               instance_variable_set("@#{name}", parent_object)
               public_send("#{foreign_key_field}=", parent_object&.id)
             end
           end
 
-          def define_parent_node_reader(name, parent_node_klass, foreign_key_field)
+          def define_parent_node_reader(name, parent_node_class, foreign_key_field)
             define_method("#{name}") do
               if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{name}").nil?
-                parent = Repositories::Registry[parent_node_klass].find(
+                parent = Repositories::Registry[parent_node_class].find(
                   instance_variable_get("@#{foreign_key_field}")
                 )
 
@@ -293,10 +285,10 @@ module Persisty
             end
           end
 
-          def define_single_child_node_reader(child_name, child_klass, child_set_parent_node)
+          def define_single_child_node_reader(child_name, child_class, child_set_parent_node)
             define_method("#{child_name}") do
               if instance_variable_get("@#{child_name}").nil?
-                child_obj = Repositories::Registry[child_klass].find_all(
+                child_obj = Repositories::Registry[child_class].find_all(
                   filter: { :"#{child_set_parent_node}_id" => id }
                 ).first
 
@@ -307,9 +299,9 @@ module Persisty
             end
           end
 
-          def define_single_child_node_writer(child_name, child_klass, child_set_parent_node)
+          def define_single_child_node_writer(child_name, child_class, child_set_parent_node)
             define_method("#{child_name}=") do |child_obj|
-              check_object_type_based_on(child_klass, child_name, child_obj)
+              NodeAssignments::CheckObjectType.(child_class, child_name, child_obj)
               previous_child = instance_variable_get("@#{child_name}")
 
               return if previous_child and previous_child.id == child_obj&.id
@@ -322,11 +314,6 @@ module Persisty
         end
 
         private
-
-        def check_object_type_based_on(node_klass, node_name, object)
-          return if object.nil? or object.is_a? node_klass
-          raise TypeError, "Object is a type mismatch from defined node '#{node_name}'"
-        end
 
         def handle_previous_child_removal(previous_child, parent_node_name)
           return unless previous_child and previous_child.public_send(parent_node_name) == self
@@ -366,9 +353,7 @@ module Persisty
           fields.each do |name, spec|
             instance_variable_set(
               :"@#{name}",
-              Entities::Field.new(
-                type: spec.dig(:type), value: attributes.dig(name)
-              ).coerce
+              Entities::Field.(type: spec.dig(:type), value: attributes.dig(name))
             )
           end
         end

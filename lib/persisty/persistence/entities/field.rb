@@ -10,6 +10,10 @@ module Persisty
           'persisty::boolean' => Persisty::Boolean
         }.freeze
 
+        def self.call(type:, value:)
+          new(type: type, value: value).coerce
+        end
+
         def initialize(type:, value:)
           @type, @value = type, value
         end

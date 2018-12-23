@@ -2,6 +2,14 @@ module Persisty
   module Persistence
     module Entities
       describe Field do
+        describe '.call type:, value:' do
+          it 'returns result of coercing value from an instance of Field' do
+            expect(
+              described_class.(type: BigDecimal, value: "100")
+            ).to be_an_instance_of BigDecimal
+          end
+        end
+
         describe '#coerce' do
           context 'for DateTime values' do
             it 'returns a DateTime value' do
