@@ -13,12 +13,14 @@ module Persisty
           base.class_eval do
             extend(ClassMethods)
 
-            @fields_list       = [] # Collection of attributes set on entity, as symbols.
-            @fields            = {} # Contains specifications of field names and types.
-            @parent_nodes_list = []
-            @parent_nodes_map  = {}
-            @child_nodes_list  = []
-            @child_nodes_map   = {}
+            @fields_list                  = [] # Collection of attributes set on entity, as symbols.
+            @fields                       = {} # Contains specifications of field names and types.
+            @parent_nodes_list            = []
+            @parent_nodes_map             = {}
+            @child_nodes_list             = []
+            @child_nodes_map              = {}
+            @child_nodes_collections_list = []
+            @child_nodes_collections_map  = {}
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
@@ -27,7 +29,8 @@ module Persisty
             class << self
               attr_reader :fields_list, :fields,
                           :parent_nodes_list, :parent_nodes_map,
-                          :child_nodes_list, :child_nodes_map
+                          :child_nodes_list, :child_nodes_map,
+                          :child_nodes_collections_list, :child_nodes_collections_map
             end
           end
         end
@@ -143,6 +146,35 @@ module Persisty
           # Raises an NotImplementedError.
           def repository
             raise NotImplementedError
+          end
+
+          def child_nodes(name, class_name: nil)
+            node_parser = CollectionNodeParser.new
+            node_parser.parse_node_identification(name, class_name)
+            node, klass = node_parser.node_name, node_parser.node_class
+            parent_node_on(klass)
+            attr_writer node
+
+            register_defined_node(:child_nodes_collection, node, klass)
+
+            collection_klass = begin
+                                 Associations.const_get("#{klass}DocumentCollection")
+                               rescue NameError
+                                 Associations.const_set(
+                                   "#{klass}DocumentCollection",
+                                   Class.new(Associations::DocumentCollection)
+                                 )
+                               end
+
+            instance_eval do
+              define_method("#{node}") do
+                collection = instance_variable_get("@#{node}")
+
+                return collection if collection
+
+                instance_variable_set("@#{node}", collection_klass.new(self, klass))
+              end
+            end
           end
 
           def child_node(name, class_name: nil)
