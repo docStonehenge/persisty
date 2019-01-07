@@ -157,14 +157,7 @@ module Persisty
 
             register_defined_node(:child_nodes_collection, node, klass)
 
-            collection_klass = begin
-                                 Associations.const_get("#{klass}DocumentCollection")
-                               rescue NameError
-                                 Associations.const_set(
-                                   "#{klass}DocumentCollection",
-                                   Class.new(Associations::DocumentCollection)
-                                 )
-                               end
+            collection_class = DocumentCollectionFactory.collection_for(klass)
 
             instance_eval do
               define_method("#{node}") do
@@ -172,7 +165,7 @@ module Persisty
 
                 return collection if collection
 
-                instance_variable_set("@#{node}", collection_klass.new(self, klass))
+                instance_variable_set("@#{node}", collection_class.new(self, klass))
               end
             end
           end
