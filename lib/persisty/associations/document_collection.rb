@@ -7,6 +7,11 @@ module Persisty
         @collection     = entities
       end
 
+      def include?(entity)
+        load_collection
+        collection.include? entity
+      end
+
       def reload
         collection&.each do |entity|
           Persistence::UnitOfWork.current.detach(entity)
@@ -30,20 +35,19 @@ module Persisty
       alias count size
 
       def push(entity)
+        raise ArgumentError unless entity.is_a? @document_class
         load_collection
 
         return if include? entity
 
         collection << entity
         collection.sort! { |x, y| x <=> y }
-      rescue Persistence::Entities::ComparisonError
-      ensure
-        collection
       end
 
       alias << push
 
       def remove(entity)
+        raise ArgumentError unless entity.is_a? @document_class
         load_collection
 
         return unless collection.delete(entity)
@@ -99,12 +103,6 @@ module Persisty
         (
           StringModifiers::Underscorer.new.underscore("#{@parent.class}") + '_id'
         ).to_sym
-      end
-
-      def include?(entity)
-        collection_ids = collection.map(&:id)
-        return false if (collection_ids.any?(&:nil?) and entity.id.nil?)
-        collection_ids.include? entity.id
       end
     end
   end

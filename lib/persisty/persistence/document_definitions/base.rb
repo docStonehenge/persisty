@@ -73,13 +73,11 @@ module Persisty
           initialize_nodes_based_on attributes
         end
 
-        # Enables comparison with another entity object, using Comparable built-in behavior.
-        # It raises a ComparisonError if caller doesn't have an id yet set, or
-        # if the object to be compared to doesn't have an id.
+        # Enables comparison with another entity object.
+        # Uses ancestor behavior when argument isn't from caller class.
         def <=>(other)
-          if id.nil? or other.id.nil?
-            raise Entities::ComparisonError
-          end
+          return super unless other.is_a?(self.class)
+          return object_id <=> other.object_id if [id, other.id].any?(&:nil?)
 
           id <=> other.id
         end

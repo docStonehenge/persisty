@@ -10,6 +10,58 @@ module Persisty
       context 'when collection is nil' do
         subject { described_class.new(parent, StubEntity) }
 
+        describe '#include entity' do
+          before do
+            expect(
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
+
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: parent.id }
+                                  ).and_return collection
+          end
+
+          context 'when entity has id' do
+            before do
+              entity.id = BSON::ObjectId.new
+            end
+
+            context 'when entity is present on collection' do
+              let(:collection) { [entity] }
+
+              it 'returns true' do
+                expect(subject.include?(entity)).to be true
+              end
+            end
+
+            context "when entity isn't present on collection" do
+              let(:collection) { [] }
+
+              it 'returns false' do
+                expect(subject.include?(entity)).to be false
+              end
+            end
+          end
+
+          context "when entity doesn't have id" do
+            context 'when entity is present on collection' do
+              let(:collection) { [entity, StubEntity.new] }
+
+              it 'returns true' do
+                expect(subject.include?(entity)).to be true
+              end
+            end
+
+            context "when entity isn't present on collection" do
+              let(:collection) { [StubEntity.new] }
+
+              it 'returns false' do
+                expect(subject.include?(entity)).to be false
+              end
+            end
+          end
+        end
+
         describe '#reload' do
           it 'clears collection variable, loads collection and returns subject' do
             expect(Persistence::UnitOfWork).not_to receive(:current)
@@ -29,80 +81,90 @@ module Persisty
         describe '#remove entity' do
           let(:other_entity) { StubEntity.new }
 
-          before do
-            expect(
-              Repositories::Registry
-            ).to receive(:[]).once.with(StubEntity).and_return repository
-
-            expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: parent.id }
-                                  ).and_return collection
-          end
-
-          context 'when collection includes entity to be removed' do
-            let(:collection) { [other_entity] }
-
-            context 'when entity has foreign key equal to collection parent' do
-              before do
-                allow(other_entity).to receive(:string_id).and_return parent.id
-              end
-
-              it 'removes from collection and calls UnitOfWork to remove entity' do
-                expect(
-                  Persistence::UnitOfWork
-                ).to receive(:current).once.and_return uow
-
-                expect(uow).to receive(:register_removed).once.with(other_entity)
-
-                subject.remove other_entity
-
-                expect(collection).not_to include other_entity
-              end
-            end
-
-            context 'when entity has nil foreign key' do
-              before do
-                allow(other_entity).to receive(:string_id).and_return nil
-              end
-
-              it 'removes from collection and calls UnitOfWork to remove entity' do
-                expect(
-                  Persistence::UnitOfWork
-                ).to receive(:current).once.and_return uow
-
-                expect(uow).to receive(:register_removed).once.with(other_entity)
-
-                subject.remove other_entity
-
-                expect(collection).not_to include other_entity
-              end
-            end
-
-            context 'when entity has foreign key different from parent' do
-              before do
-                allow(other_entity).to receive(:string_id).and_return 123
-              end
-
-              it "removes from collection but doesn't call UnitOfWork to remove entity" do
-                expect(Persistence::UnitOfWork).not_to receive(:current)
-
-                subject.remove other_entity
-
-                expect(collection).not_to include other_entity
-              end
-            end
-          end
-
-          context "when collection doesn't include entity" do
-            let(:collection) { [] }
-
-            it 'halts execution' do
+          context "when entity isn't of document class" do
+            it 'raises ArgumentError' do
               expect {
-                expect(other_entity).not_to receive(:string_id)
-                expect(Persistence::UnitOfWork).not_to receive(:current)
+                subject.remove(StubEntityForCollection.new)
+              }.to raise_error(ArgumentError)
+            end
+          end
 
-                subject.remove other_entity
-              }.not_to change(collection, :size)
+          context 'when entity is of document class' do
+            before do
+              expect(
+                Repositories::Registry
+              ).to receive(:[]).once.with(StubEntity).and_return repository
+
+              expect(repository).to receive(:find_all).once.with(
+                                      filter: { string_id: parent.id }
+                                    ).and_return collection
+            end
+
+            context 'when collection includes entity to be removed' do
+              let(:collection) { [other_entity] }
+
+              context 'when entity has foreign key equal to collection parent' do
+                before do
+                  allow(other_entity).to receive(:string_id).and_return parent.id
+                end
+
+                it 'removes from collection and calls UnitOfWork to remove entity' do
+                  expect(
+                    Persistence::UnitOfWork
+                  ).to receive(:current).once.and_return uow
+
+                  expect(uow).to receive(:register_removed).once.with(other_entity)
+
+                  subject.remove other_entity
+
+                  expect(collection).not_to include other_entity
+                end
+              end
+
+              context 'when entity has nil foreign key' do
+                before do
+                  allow(other_entity).to receive(:string_id).and_return nil
+                end
+
+                it 'removes from collection and calls UnitOfWork to remove entity' do
+                  expect(
+                    Persistence::UnitOfWork
+                  ).to receive(:current).once.and_return uow
+
+                  expect(uow).to receive(:register_removed).once.with(other_entity)
+
+                  subject.remove other_entity
+
+                  expect(collection).not_to include other_entity
+                end
+              end
+
+              context 'when entity has foreign key different from parent' do
+                before do
+                  allow(other_entity).to receive(:string_id).and_return 123
+                end
+
+                it "removes from collection but doesn't call UnitOfWork to remove entity" do
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                  subject.remove other_entity
+
+                  expect(collection).not_to include other_entity
+                end
+              end
+            end
+
+            context "when collection doesn't include entity" do
+              let(:collection) { [] }
+
+              it 'halts execution' do
+                expect {
+                  expect(other_entity).not_to receive(:string_id)
+                  expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                  subject.remove other_entity
+                }.not_to change(collection, :size)
+              end
             end
           end
         end
@@ -110,52 +172,64 @@ module Persisty
         describe '#<< entity' do
           let(:other_entity) { StubEntity.new }
 
-          before do
-            expect(
-              Repositories::Registry
-            ).to receive(:[]).once.with(StubEntity).and_return repository
-
-            expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: parent.id }
-                                  ).and_return collection
-          end
-
-          context 'when entity has ID' do
-            before do
-              other_entity.id = BSON::ObjectId.new
-              entity.id = BSON::ObjectId.new
-            end
-
-            context "when collection doesn't include entity yet" do
-              let(:collection) { [entity] }
-
-              it 'pushes entity to collection, sorting collection after' do
-                subject << other_entity
-
-                expect(collection).to eql([other_entity, entity])
-              end
-            end
-
-            context 'when collection already include entity' do
-              let(:collection) { [other_entity, entity] }
-
-              it 'skips pushing and sorting on collection' do
-                subject << other_entity
-
-                expect(collection.count).to eql 2
-                expect(collection).to eql([other_entity, entity])
-              end
-            end
-          end
-
-          context "when entity doesn't have ID" do
-            before { entity.id = BSON::ObjectId.new }
-
+          context "when argument isn't of collection class" do
             let(:collection) { [entity] }
 
-            it 'pushes entity to collection, leaving pushed entity in last' do
-              subject << other_entity
-              expect(collection).to eql([entity, other_entity])
+            it 'raises ArgumentError' do
+              expect {
+                subject << StubEntityForCollection.new
+              }.to raise_error(ArgumentError)
+            end
+          end
+
+          context 'when argument is of collection class' do
+            before do
+              expect(
+                Repositories::Registry
+              ).to receive(:[]).once.with(StubEntity).and_return repository
+
+              expect(repository).to receive(:find_all).once.with(
+                                      filter: { string_id: parent.id }
+                                    ).and_return collection
+            end
+
+            context 'when entity has ID' do
+              before do
+                other_entity.id = BSON::ObjectId.new
+                entity.id = BSON::ObjectId.new
+              end
+
+              context "when collection doesn't include entity yet" do
+                let(:collection) { [entity] }
+
+                it 'pushes entity to collection, sorting collection after' do
+                  subject << other_entity
+
+                  expect(collection).to eql([other_entity, entity])
+                end
+              end
+
+              context 'when collection already include entity' do
+                let(:collection) { [other_entity, entity] }
+
+                it 'skips pushing and sorting on collection' do
+                  subject << other_entity
+
+                  expect(collection.count).to eql 2
+                  expect(collection).to eql([other_entity, entity])
+                end
+              end
+            end
+
+            context "when entity doesn't have ID" do
+              before { entity.id = BSON::ObjectId.new }
+
+              let(:collection) { [entity] }
+
+              it 'pushes entity to collection' do
+                subject << other_entity
+                expect(collection).to eql([other_entity, entity])
+              end
             end
           end
         end
@@ -163,52 +237,64 @@ module Persisty
         describe '#push entity' do
           let(:other_entity) { StubEntity.new }
 
-          before do
-            expect(
-              Repositories::Registry
-            ).to receive(:[]).once.with(StubEntity).and_return repository
-
-            expect(repository).to receive(:find_all).once.with(
-                                    filter: { string_id: parent.id }
-                                  ).and_return collection
-          end
-
-          context 'when entity has ID' do
-            before do
-              other_entity.id = BSON::ObjectId.new
-              entity.id = BSON::ObjectId.new
-            end
-
-            context "when collection doesn't include entity yet" do
-              let(:collection) { [entity] }
-
-              it 'pushes entity to collection, sorting collection after' do
-                subject.push other_entity
-
-                expect(collection).to eql([other_entity, entity])
-              end
-            end
-
-            context 'when collection already include entity' do
-              let(:collection) { [other_entity, entity] }
-
-              it 'skips pushing and sorting on collection' do
-                subject.push other_entity
-
-                expect(collection.count).to eql 2
-                expect(collection).to eql([other_entity, entity])
-              end
-            end
-          end
-
-          context "when entity doesn't have ID" do
-            before { entity.id = BSON::ObjectId.new }
-
+          context "when argument isn't of collection class" do
             let(:collection) { [entity] }
 
-            it 'pushes entity to collection, leaving pushed entity in last' do
-              subject.push other_entity
-              expect(collection).to eql([entity, other_entity])
+            it 'raises ArgumentError' do
+              expect {
+                subject.push StubEntityForCollection.new
+              }.to raise_error(ArgumentError)
+            end
+          end
+
+          context 'when argument is of collection class' do
+            before do
+              expect(
+                Repositories::Registry
+              ).to receive(:[]).once.with(StubEntity).and_return repository
+
+              expect(repository).to receive(:find_all).once.with(
+                                      filter: { string_id: parent.id }
+                                    ).and_return collection
+            end
+
+            context 'when entity has ID' do
+              before do
+                other_entity.id = BSON::ObjectId.new
+                entity.id = BSON::ObjectId.new
+              end
+
+              context "when collection doesn't include entity yet" do
+                let(:collection) { [entity] }
+
+                it 'pushes entity to collection, sorting collection after' do
+                  subject.push other_entity
+
+                  expect(collection).to eql([other_entity, entity])
+                end
+              end
+
+              context 'when collection already include entity' do
+                let(:collection) { [other_entity, entity] }
+
+                it 'skips pushing and sorting on collection' do
+                  subject.push other_entity
+
+                  expect(collection.count).to eql 2
+                  expect(collection).to eql([other_entity, entity])
+                end
+              end
+            end
+
+            context "when entity doesn't have ID" do
+              before { entity.id = BSON::ObjectId.new }
+
+              let(:collection) { [entity] }
+
+              it 'pushes entity to collection' do
+                subject.push other_entity
+                expect(collection).to eql([other_entity, entity])
+              end
             end
           end
         end
@@ -336,6 +422,52 @@ module Persisty
 
         subject { described_class.new(parent, StubEntity, collection) }
 
+        describe '#include entity' do
+          before do
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
+          end
+
+          context 'when entity has id' do
+            before do
+              entity.id = BSON::ObjectId.new
+            end
+
+            context 'when entity is present on collection' do
+              let(:collection) { [entity] }
+
+              it 'returns true' do
+                expect(subject.include?(entity)).to be true
+              end
+            end
+
+            context "when entity isn't present on collection" do
+              let(:collection) { [] }
+
+              it 'returns false' do
+                expect(subject.include?(entity)).to be false
+              end
+            end
+          end
+
+          context "when entity doesn't have id" do
+            context 'when entity is present on collection' do
+              let(:collection) { [entity, StubEntity.new] }
+
+              it 'returns true' do
+                expect(subject.include?(entity)).to be true
+              end
+            end
+
+            context "when entity isn't present on collection" do
+              let(:collection) { [StubEntity.new] }
+
+              it 'returns false' do
+                expect(subject.include?(entity)).to be false
+              end
+            end
+          end
+        end
+
         describe '#reload' do
           it 'detaches entities, clears collection variable, loads collection and returns subject' do
             expect(
@@ -356,12 +488,19 @@ module Persisty
           end
         end
 
-
         describe '#remove entity' do
           let(:other_entity) { StubEntity.new }
 
           before do
             expect(Repositories::Registry).not_to receive(:[]).with(any_args)
+          end
+
+          context "when entity isn't of document class" do
+            it 'raises ArgumentError' do
+              expect {
+                subject.remove(StubEntityForCollection.new)
+              }.to raise_error(ArgumentError)
+            end
           end
 
           context 'when collection includes entity to be removed' do
@@ -439,6 +578,16 @@ module Persisty
             expect(Repositories::Registry).not_to receive(:[]).with(any_args)
           end
 
+          context "when argument isn't of collection class" do
+            let(:collection) { [entity] }
+
+            it 'raises ArgumentError' do
+              expect {
+                subject << StubEntityForCollection.new
+              }.to raise_error(ArgumentError)
+            end
+          end
+
           context 'when entity has ID' do
             before do
               other_entity.id = BSON::ObjectId.new
@@ -468,17 +617,17 @@ module Persisty
           end
 
           context "when entity doesn't have ID" do
-            it 'pushes entity to collection, leaving pushed entity in last' do
+            it 'pushes entity to collection' do
               entity.id = BSON::ObjectId.new
 
               subject << other_entity
-              expect(collection).to eql([entity, other_entity])
+              expect(collection).to eql([other_entity, entity])
             end
 
             context "when all entities on collection doesn't have ID" do
-              it 'pushes entity to collection, leaving pushed entity in last' do
+              it 'pushes entity to collection' do
                 subject << other_entity
-                expect(collection).to eql([entity, other_entity])
+                expect(collection).to eql([other_entity, entity])
               end
             end
           end
@@ -491,6 +640,16 @@ module Persisty
             expect(Repositories::Registry).not_to receive(:[]).with(any_args)
           end
 
+          context "when argument isn't of collection class" do
+            let(:collection) { [entity] }
+
+            it 'raises ArgumentError' do
+              expect {
+                subject.push StubEntityForCollection.new
+              }.to raise_error(ArgumentError)
+            end
+          end
+
           context 'when entity has ID' do
             before do
               other_entity.id = BSON::ObjectId.new
@@ -520,17 +679,17 @@ module Persisty
           end
 
           context "when entity doesn't have ID" do
-            it 'pushes entity to collection, leaving pushed entity in last' do
+            it 'pushes entity to collection' do
               entity.id = BSON::ObjectId.new
 
               subject.push other_entity
-              expect(collection).to eql([entity, other_entity])
+              expect(collection).to eql([other_entity, entity])
             end
 
             context "when all entities on collection doesn't have ID" do
-              it 'pushes entity to collection, leaving pushed entity in last' do
+              it 'pushes entity to collection' do
                 subject << other_entity
-                expect(collection).to eql([entity, other_entity])
+                expect(collection).to eql([other_entity, entity])
               end
             end
           end

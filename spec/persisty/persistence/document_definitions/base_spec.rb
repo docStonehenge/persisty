@@ -1205,79 +1205,45 @@ module Persisty
           describe '#<=> other' do
             subject { described_class.new(id: id) }
 
+            context 'when other object is from a class different from subject' do
+              it 'raises ArgumentError on less than' do
+                expect {
+                  subject < StubEntity.new
+                }.to raise_error(ArgumentError)
+              end
+
+              it 'raises ArgumentError on greater than' do
+                expect {
+                  subject > StubEntity.new
+                }.to raise_error(ArgumentError)
+              end
+
+              it 'is false on less than or equal' do
+                expect(subject).not_to be <= StubEntity.new
+              end
+
+              it 'is false on greater than or equal' do
+                expect(subject).not_to be >= StubEntity.new
+              end
+            end
+
             context 'when subject has no id' do
+              let(:other_entity) { described_class.new(id: id, first_name: 'John', dob: Date.parse('1990/01/01')) }
+
               before { allow(subject).to receive(:id).and_return nil }
 
-              it 'raises comparison error on less than' do
-                expect {
-                  subject < described_class.new(id: id, first_name: 'John', dob: Date.parse('1990/01/01'))
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
-              end
-
-              it 'raises comparison error on greater than' do
-                expect {
-                  subject > described_class.new(id: id, first_name: 'John', dob: Date.parse('1990/01/01'))
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
-              end
-
-              it 'raises comparison error on less than or equal' do
-                expect {
-                  subject <= described_class.new(id: id, first_name: 'John', dob: Date.parse('1990/01/01'))
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
-              end
-
-              it 'raises comparison error on greater than or equal' do
-                expect {
-                  subject >= described_class.new(id: id, first_name: 'John', dob: Date.parse('1990/01/01'))
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
+              it 'compares with other entity by object_id' do
+                expect(subject).not_to be == other_entity
+                expect(subject).to be == subject
               end
             end
 
             context 'when other object has no id' do
-              before do
-                @other_entity = described_class.new(
-                  first_name: 'John', dob: Date.parse('1990/01/01')
-                )
-              end
+              let(:other_entity) { described_class.new(first_name: 'John', dob: Date.parse('1990/01/01')) }
 
-              it 'raises comparison error on less than' do
-                expect {
-                  subject < @other_entity
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
-              end
-
-              it 'raises comparison error on greater than' do
-                expect {
-                  subject > @other_entity
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
-              end
-
-              it 'raises comparison error on less than or equal' do
-                expect {
-                  subject <= @other_entity
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
-              end
-
-              it 'raises comparison error on greater than or equal' do
-                expect {
-                  subject >= @other_entity
-                }.to raise_error(
-                       Entities::ComparisonError, "Cannot compare with an entity that isn't persisted."
-                     )
+              it 'compares with other entity by object_id' do
+                expect(subject).not_to be == other_entity
+                expect(subject).to be == subject
               end
             end
 
