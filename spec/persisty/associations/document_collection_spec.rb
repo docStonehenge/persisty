@@ -228,7 +228,7 @@ module Persisty
 
               it 'pushes entity to collection' do
                 subject << other_entity
-                expect(collection).to eql([other_entity, entity])
+                expect(collection).to include(other_entity, entity)
               end
             end
           end
@@ -293,7 +293,7 @@ module Persisty
 
               it 'pushes entity to collection' do
                 subject.push other_entity
-                expect(collection).to eql([other_entity, entity])
+                expect(collection).to include(other_entity, entity)
               end
             end
           end
@@ -621,13 +621,13 @@ module Persisty
               entity.id = BSON::ObjectId.new
 
               subject << other_entity
-              expect(collection).to eql([other_entity, entity])
+              expect(collection).to include(other_entity, entity)
             end
 
             context "when all entities on collection doesn't have ID" do
               it 'pushes entity to collection' do
                 subject << other_entity
-                expect(collection).to eql([other_entity, entity])
+                expect(collection).to include(other_entity, entity)
               end
             end
           end
@@ -683,13 +683,13 @@ module Persisty
               entity.id = BSON::ObjectId.new
 
               subject.push other_entity
-              expect(collection).to eql([other_entity, entity])
+              expect(collection).to include(other_entity, entity)
             end
 
             context "when all entities on collection doesn't have ID" do
               it 'pushes entity to collection' do
                 subject << other_entity
-                expect(collection).to eql([other_entity, entity])
+                expect(collection).to include(other_entity, entity)
               end
             end
           end
