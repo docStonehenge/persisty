@@ -52,11 +52,7 @@ module Persisty
 
         return unless collection.delete(entity)
 
-        entity_foreign_key = entity.public_send(foreign_key)
-
-        if entity_foreign_key.nil? or entity_foreign_key == @parent.id
-          Persistence::UnitOfWork.current.register_removed(entity)
-        end
+        register_removal_for entity
       end
 
       def all
@@ -103,6 +99,12 @@ module Persisty
         (
           StringModifiers::Underscorer.new.underscore("#{@parent.class}") + '_id'
         ).to_sym
+      end
+
+      def register_removal_for(entity)
+        entity_foreign_key = entity.public_send(foreign_key)
+        return unless entity_foreign_key.nil? or entity_foreign_key == @parent.id
+        Persistence::UnitOfWork.current.register_removed(entity)
       end
     end
   end
