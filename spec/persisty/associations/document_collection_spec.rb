@@ -313,6 +313,20 @@ module Persisty
           end
         end
 
+        describe '#to_a' do
+          it 'calls repository to load collection and returns all objects found' do
+            expect(
+              Repositories::Registry
+            ).to receive(:[]).once.with(StubEntity).and_return repository
+
+            expect(repository).to receive(:find_all).once.with(
+                                    filter: { string_id: parent.id }
+                                  ).and_return [entity]
+
+            expect(subject.to_a).to eql [entity]
+          end
+        end
+
         describe '#each' do
           it 'calls repository to load collection and yields each object loaded' do
             expect(
@@ -699,6 +713,13 @@ module Persisty
           it 'returns collection without trying to load objects' do
             expect(Repositories::Registry).not_to receive(:[]).with(any_args)
             expect(subject.all).to eql [entity]
+          end
+        end
+
+        describe '#to_a' do
+          it 'returns collection without trying to load objects' do
+            expect(Repositories::Registry).not_to receive(:[]).with(any_args)
+            expect(subject.to_a).to eql [entity]
           end
         end
 

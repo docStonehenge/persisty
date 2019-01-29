@@ -60,6 +60,8 @@ module Persisty
         collection
       end
 
+      alias to_a all
+
       def each(&block)
         load_collection
         collection.each(&block)
