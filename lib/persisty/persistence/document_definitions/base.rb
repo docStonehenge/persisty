@@ -151,19 +151,24 @@ module Persisty
             node_parser.parse_node_identification(name, class_name)
             node, klass = node_parser.node_name, node_parser.node_class
             parent_node_on(klass)
-            attr_writer node
-
             register_defined_node(:child_nodes_collection, node, klass)
-
             collection_class = DocumentCollectionFactory.collection_for(klass)
 
             instance_eval do
               define_method("#{node}") do
                 collection = instance_variable_get("@#{node}")
-
                 return collection if collection
 
                 instance_variable_set("@#{node}", collection_class.new(self, klass))
+              end
+
+              define_method("#{node}=") do |collection|
+                instance_variable_set(
+                  "@#{node}",
+                  DocumentCollectionBuilder.new(
+                    self, public_send("#{node}"), klass
+                  ).build_with(collection)
+                )
               end
             end
           end

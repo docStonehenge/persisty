@@ -29,6 +29,8 @@ module Persisty
 
           context 'associations' do
             describe '.child_nodes name, class_name:' do
+              let(:collection_builder) { double(:collection_builder) }
+
               before do
                 @subject = described_class.new(id: BSON::ObjectId.new)
               end
@@ -67,6 +69,30 @@ module Persisty
                   expect(collection).to be_an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
                   expect(@subject.stub_entity_for_collections).to equal(collection)
                 end
+
+                it 'assigns a DocumentCollection on writer, using previous collection' do
+                  entities = [entity_for_collection]
+
+                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
+
+                  described_class.child_nodes :stub_entity_for_collections
+
+                  previous_collection = @subject.stub_entity_for_collections
+
+                  expect(DocumentCollectionBuilder).to receive(:new).once.with(
+                                                         @subject,
+                                                         @subject.stub_entity_for_collections,
+                                                         StubEntityForCollection
+                                                       ).and_return collection_builder
+
+                  expect(
+                    collection_builder
+                  ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+
+                  @subject.stub_entity_for_collections = entities
+
+                  expect(@subject.stub_entity_for_collections).not_to equal previous_collection
+                end
               end
 
               context "when class_name isn't nil" do
@@ -102,6 +128,30 @@ module Persisty
                   collection = @subject.foos
                   expect(collection).to be_an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
                   expect(@subject.foos).to equal(collection)
+                end
+
+                it 'assigns a DocumentCollection on writer, using previous collection' do
+                  entities = [entity_for_collection]
+
+                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
+
+                  described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
+
+                  previous_collection = @subject.foos
+
+                  expect(DocumentCollectionBuilder).to receive(:new).once.with(
+                                                         @subject,
+                                                         @subject.foos,
+                                                         StubEntityForCollection
+                                                       ).and_return collection_builder
+
+                  expect(
+                    collection_builder
+                  ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+
+                  @subject.foos = entities
+
+                  expect(@subject.foos).not_to equal previous_collection
                 end
               end
             end
