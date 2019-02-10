@@ -203,6 +203,8 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection, sorting collection after' do
+                  expect(other_entity).to receive(:string_id=).once.with(parent.id)
+
                   subject << other_entity
 
                   expect(collection).to eql([other_entity, entity])
@@ -213,6 +215,8 @@ module Persisty
                 let(:collection) { [other_entity, entity] }
 
                 it 'skips pushing and sorting on collection' do
+                  expect(other_entity).not_to receive(:string_id=).with(any_args)
+
                   subject << other_entity
 
                   expect(collection.count).to eql 2
@@ -227,6 +231,8 @@ module Persisty
               let(:collection) { [entity] }
 
               it 'pushes entity to collection' do
+                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+
                 subject << other_entity
                 expect(collection).to include(other_entity, entity)
               end
@@ -268,6 +274,8 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection, sorting collection after' do
+                  expect(other_entity).to receive(:string_id=).once.with(parent.id)
+
                   subject.push other_entity
 
                   expect(collection).to eql([other_entity, entity])
@@ -278,6 +286,8 @@ module Persisty
                 let(:collection) { [other_entity, entity] }
 
                 it 'skips pushing and sorting on collection' do
+                  expect(other_entity).not_to receive(:string_id=).with(any_args)
+
                   subject.push other_entity
 
                   expect(collection.count).to eql 2
@@ -292,6 +302,8 @@ module Persisty
               let(:collection) { [entity] }
 
               it 'pushes entity to collection' do
+                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+
                 subject.push other_entity
                 expect(collection).to include(other_entity, entity)
               end
@@ -610,6 +622,8 @@ module Persisty
 
             context "when collection doesn't include entity yet" do
               it 'pushes entity to collection, sorting collection after' do
+                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+
                 subject << other_entity
 
                 expect(collection).to eql([other_entity, entity])
@@ -622,6 +636,8 @@ module Persisty
               subject { described_class.new(parent, StubEntity, collection) }
 
               it 'skips pushing and sorting on collection' do
+                expect(other_entity).not_to receive(:string_id=).with(any_args)
+
                 subject << other_entity
 
                 expect(collection.count).to eql 2
@@ -631,6 +647,10 @@ module Persisty
           end
 
           context "when entity doesn't have ID" do
+            before do
+              expect(other_entity).to receive(:string_id=).once.with(parent.id)
+            end
+
             it 'pushes entity to collection' do
               entity.id = BSON::ObjectId.new
 
@@ -672,6 +692,8 @@ module Persisty
 
             context "when collection doesn't include entity yet" do
               it 'pushes entity to collection, sorting collection after' do
+                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+
                 subject.push other_entity
 
                 expect(collection).to eql([other_entity, entity])
@@ -684,6 +706,8 @@ module Persisty
               subject { described_class.new(parent, StubEntity, collection) }
 
               it 'skips pushing and sorting on collection' do
+                expect(other_entity).not_to receive(:string_id=).with(any_args)
+
                 subject.push other_entity
 
                 expect(collection.count).to eql 2
@@ -693,6 +717,10 @@ module Persisty
           end
 
           context "when entity doesn't have ID" do
+            before do
+              expect(other_entity).to receive(:string_id=).once.with(parent.id)
+            end
+
             it 'pushes entity to collection' do
               entity.id = BSON::ObjectId.new
 

@@ -41,6 +41,7 @@ module Persisty
         return if include? entity
 
         collection << entity
+        entity.public_send("#{foreign_key}=", @parent.id)
         collection.sort! { |x, y| x <=> y }
       end
 

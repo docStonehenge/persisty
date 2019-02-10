@@ -134,6 +134,10 @@ module Persisty
           self.class.child_nodes_list
         end
 
+        def child_nodes_collections_list
+          self.class.child_nodes_collections_list
+        end
+
         def child_nodes_map
           self.class.child_nodes_map
         end

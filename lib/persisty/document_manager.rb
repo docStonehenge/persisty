@@ -26,21 +26,24 @@ module Persisty
     def persist(entity)
       assign_new_id_to entity
 
-      map_single_child_nodes_on(entity).each do |child|
-        child.set_foreign_key_for(entity.class, entity.id)
-        assign_new_id_to child
-        unit_of_work.register_new child
-      end
+      map_single_child_nodes_on(entity).each(&persist_child_operation_block(entity))
+
+      operate_on_child_nodes_collections_from(
+        entity, &persist_child_operation_block(entity)
+      )
 
       unit_of_work.register_new entity
     end
 
     def remove(entity)
-      unit_of_work.register_removed entity
-
-      map_single_child_nodes_on(entity).each do |child|
-        unit_of_work.register_removed child
+      removal_operation = lambda do |entity_to_be_removed|
+        unit_of_work.register_removed entity_to_be_removed
       end
+
+      removal_operation.call(entity)
+
+      map_single_child_nodes_on(entity).each(&removal_operation)
+      operate_on_child_nodes_collections_from(entity, &removal_operation)
     end
 
     def commit
@@ -75,6 +78,20 @@ module Persisty
       entity.child_nodes_list.map do |child_node|
         entity.public_send(child_node)
       end.compact
+    end
+
+    def operate_on_child_nodes_collections_from(entity, &block)
+      entity.child_nodes_collections_list.map do |child_node_collection|
+        entity.public_send(child_node_collection)
+      end.each { |child_node_collection| child_node_collection.each(&block) }
+    end
+
+    def persist_child_operation_block(entity)
+      lambda do |child|
+        child.set_foreign_key_for(entity.class, entity.id)
+        assign_new_id_to child
+        unit_of_work.register_new child
+      end
     end
   end
 end

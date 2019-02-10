@@ -175,6 +175,7 @@ module Persisty
         before do
           allow(entity).to receive(:id).and_return nil
           allow(entity).to receive(:child_nodes_list).and_return []
+          allow(entity).to receive(:child_nodes_collections_list).and_return []
         end
 
         it 'sets entity ID and registers on Persistence::UnitOfWork as new' do
@@ -188,9 +189,63 @@ module Persisty
       context 'when entity already has an ID' do
         it "doesn't replace entity's ID and just calls Persistence::UnitOfWork registration" do
           allow(entity).to receive(:child_nodes_list).and_return []
+          allow(entity).to receive(:child_nodes_collections_list).and_return []
           expect(id_gen).not_to receive(:generate)
           expect(entity).not_to receive(:id=).with(any_args)
           expect(unit_of_work).to receive(:register_new).once.with(entity)
+          subject.persist entity
+        end
+      end
+
+      context 'handling entity child nodes collections' do
+        let(:child_one) { double(:child_one) }
+        let(:child_two) { double(:child_two) }
+
+        before do
+          allow(entity).to receive(:id).and_return nil
+          allow(entity).to receive(:class).and_return Object
+          expect(entity).to receive(:child_nodes_list).and_return []
+          expect(entity).to receive(:child_nodes_collections_list).and_return [:child_ones, :child_twos]
+          expect(id_gen).to receive(:generate).once.and_return 123
+          expect(entity).to receive(:id=).once.with(123)
+        end
+
+        it 'sets entity ID, same ID as foreign key on each child, registers entity and childs as new' do
+          expect(entity).to receive(:child_ones).once.and_return [child_one]
+
+          allow(child_one).to receive(:id).and_return nil
+          expect(id_gen).to receive(:generate).once.and_return 124
+          expect(child_one).to receive(:id=).once.with(124)
+          expect(child_one).to receive(:set_foreign_key_for).once.with(Object, entity.id)
+
+          expect(entity).to receive(:child_twos).once.and_return [child_two]
+          allow(child_two).to receive(:id).and_return nil
+          expect(id_gen).to receive(:generate).once.and_return 125
+          expect(child_two).to receive(:id=).once.with(125)
+          expect(child_two).to receive(:set_foreign_key_for).once.with(Object, entity.id)
+
+          expect(unit_of_work).to receive(:register_new).once.with(entity)
+          expect(unit_of_work).to receive(:register_new).once.with(child_one)
+          expect(unit_of_work).to receive(:register_new).once.with(child_two)
+
+          subject.persist entity
+        end
+
+        it 'handles only foreign keys on childs when their IDs are already set' do
+          expect(entity).to receive(:child_ones).once.and_return [child_one]
+          allow(child_one).to receive(:id).and_return 124
+          expect(child_one).not_to receive(:id=).with(any_args)
+          expect(child_one).to receive(:set_foreign_key_for).once.with(Object, entity.id)
+
+          expect(entity).to receive(:child_twos).once.and_return [child_two]
+          allow(child_two).to receive(:id).and_return 125
+          expect(child_two).not_to receive(:id=).with(any_args)
+          expect(child_two).to receive(:set_foreign_key_for).once.with(Object, entity.id)
+
+          expect(unit_of_work).to receive(:register_new).once.with(entity)
+          expect(unit_of_work).to receive(:register_new).once.with(child_one)
+          expect(unit_of_work).to receive(:register_new).once.with(child_two)
+
           subject.persist entity
         end
       end
@@ -203,6 +258,7 @@ module Persisty
           allow(entity).to receive(:id).and_return nil
           allow(entity).to receive(:class).and_return Object
           expect(entity).to receive(:child_nodes_list).and_return [:child_one, :child_two]
+          allow(entity).to receive(:child_nodes_collections_list).and_return []
           expect(id_gen).to receive(:generate).once.and_return 123
           expect(entity).to receive(:id=).once.with(123)
         end
@@ -264,8 +320,30 @@ module Persisty
     describe '#remove entity' do
       it 'calls removed registration of entity on Persistence::UnitOfWork' do
         expect(entity).to receive(:child_nodes_list).and_return []
+        expect(entity).to receive(:child_nodes_collections_list).and_return []
         expect(unit_of_work).to receive(:register_removed).once.with(entity)
         subject.remove entity
+      end
+
+      context 'handle collections of child nodes on entity' do
+        let(:child_one) { double(:child_one) }
+        let(:child_two) { double(:child_two) }
+
+        before do
+          expect(entity).to receive(:child_nodes_list).and_return []
+          expect(entity).to receive(:child_nodes_collections_list).and_return [:child_ones, :child_twos]
+        end
+
+        it 'registers parent and all childs from each collection to be removed' do
+          expect(entity).to receive(:child_ones).once.and_return [child_one]
+          expect(entity).to receive(:child_twos).once.and_return [child_two]
+
+          expect(unit_of_work).to receive(:register_removed).once.with(entity)
+          expect(unit_of_work).to receive(:register_removed).once.with(child_one)
+          expect(unit_of_work).to receive(:register_removed).once.with(child_two)
+
+          subject.remove entity
+        end
       end
 
       context 'handling single child nodes on entity' do
@@ -274,6 +352,7 @@ module Persisty
 
         before do
           expect(entity).to receive(:child_nodes_list).and_return [:child_one, :child_two]
+          expect(entity).to receive(:child_nodes_collections_list).and_return []
         end
 
         it 'registers all childs and parent to be removed' do

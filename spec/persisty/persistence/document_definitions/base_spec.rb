@@ -1050,6 +1050,16 @@ module Persisty
             end
           end
 
+          describe '#child_nodes_collections_list' do
+            it 'returns list of child_nodes collections set on object class' do
+              StubEntity.child_nodes :test_entities
+
+              subject = StubEntity.new
+
+              expect(subject.child_nodes_collections_list).to include :test_entities
+            end
+          end
+
           describe '#child_nodes_map' do
             it 'returns map of child_nodes on object class' do
               StubEntity.child_node :test_entity
