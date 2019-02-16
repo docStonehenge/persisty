@@ -5,7 +5,7 @@ module Persisty
         include Comparable
 
         # Extends class-level behavior for entities, including document field definitions.
-        # Sets <tt>fields_list</tt> and <tt>fields</tt> class instance variables,
+        # Sets <tt>fields_reference</tt> class instance variable,
         # to hold fields properties, with proper reader methods.
         # Finally, defines <tt>id</tt> attribute, to hold primary key values for entity,
         # aliasing to <tt>_id</tt>, according to MongoDB field with same name.
@@ -13,8 +13,7 @@ module Persisty
           base.class_eval do
             extend(ClassMethods)
 
-            @fields_list                  = [] # Collection of attributes set on entity, as symbols.
-            @fields                       = {} # Contains specifications of field names and types.
+            @fields_reference             = FieldsReference.new
             @parent_nodes_list            = []
             @parent_nodes_map             = {}
             @child_nodes_list             = []
@@ -27,10 +26,17 @@ module Persisty
             alias_method(:_id=, :id=)
 
             class << self
-              attr_reader :fields_list, :fields,
-                          :parent_nodes_list, :parent_nodes_map,
+              attr_reader :parent_nodes_list, :parent_nodes_map,
                           :child_nodes_list, :child_nodes_map,
                           :child_nodes_collections_list, :child_nodes_collections_map
+
+              def fields
+                @fields_reference.fields
+              end
+
+              def fields_list
+                @fields_reference.fields_list
+              end
             end
           end
         end
@@ -250,8 +256,7 @@ module Persisty
           end
 
           def register_defined_field(name, type)
-            @fields_list.push(name)
-            @fields[name] = { type: type }
+            @fields_reference.register(name, type)
           end
 
           def register_defined_node(node_type, name, node_class)
