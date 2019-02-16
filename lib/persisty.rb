@@ -27,12 +27,10 @@ module Persisty
   require 'persisty/databases/mongo_db/aggregation_wrapper'
   require 'persisty/databases/mongo_db/client'
 
-  require 'persisty/persistence/unit_of_work_not_started_error'
   require 'persisty/persistence/unit_of_work'
   require 'persisty/persistence/entities/registry'
   require 'persisty/persistence/entities/dirty_tracking_registry'
   require 'persisty/persistence/entities/field'
-  require 'persisty/persistence/entities/comparison_error'
   require 'persisty/persistence/document_definitions/node_assignments/check_object_type'
   require 'persisty/persistence/document_definitions/node_parser'
   require 'persisty/persistence/document_definitions/collection_node_parser'

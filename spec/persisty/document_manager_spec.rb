@@ -14,22 +14,6 @@ module Persisty
       allow(Persistence::UnitOfWork).to receive(:current).and_return unit_of_work
     end
 
-    describe 'initialization' do
-      context "when unit of work isn't already set" do
-        it 'initializes with a new Persistence::UnitOfWork object' do
-          allow(Persistence::UnitOfWork).to receive(:current).once.and_raise(
-                                              Persistence::UnitOfWorkNotStartedError
-                                            )
-
-          expect(
-            Persistence::UnitOfWork
-          ).to receive(:new_current).once.and_return unit_of_work
-
-          described_class.new
-        end
-      end
-    end
-
     describe '#find entity_type, entity_id' do
       before do
         expect(

@@ -943,21 +943,6 @@ module Persisty
                     }.not_to change(@subject, :name)
                   end
                 end
-
-                context 'when current UnitOfWork is not started' do
-                  before do
-                    @subject = described_class.new(id: BSON::ObjectId.new, name: 'Name')
-                    Persistence::UnitOfWork.current = nil
-                    expect(@subject).to respond_to :name
-                    expect(@subject).to respond_to(:name=)
-                  end
-
-                  it 'defines reader, writer, converting field only' do
-                    expect {
-                      @subject.name = 'New name'
-                    }.to change(@subject, :name).to('New name')
-                  end
-                end
               end
             end
           end

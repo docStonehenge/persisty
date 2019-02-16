@@ -13,10 +13,6 @@ describe 'Persistence::UnitOfWork integration tests', db_integration: true do
   it 'sets unit of work object into current Thread only' do
     Persisty::Persistence::UnitOfWork.current = subject
     expect(Persisty::Persistence::UnitOfWork.current).to equal subject
-
-    expect {
-      Thread.new { Persisty::Persistence::UnitOfWork.current }.join
-    }.to raise_error(Persisty::Persistence::UnitOfWorkNotStartedError)
   end
 
   it 'sets a new unit of work object into current Thread' do
@@ -25,10 +21,6 @@ describe 'Persistence::UnitOfWork integration tests', db_integration: true do
     expect(
       Persisty::Persistence::UnitOfWork.current
     ).to be_an_instance_of Persisty::Persistence::UnitOfWork
-
-    expect {
-      Thread.new { Persisty::Persistence::UnitOfWork.current }.join
-    }.to raise_error(Persisty::Persistence::UnitOfWorkNotStartedError)
   end
 
   it 'uses same entity registry from existing uow on new one registered' do
@@ -41,10 +33,6 @@ describe 'Persistence::UnitOfWork integration tests', db_integration: true do
   end
 
   it 'uses new entity registry and dirty tracking on new UnitOfWork when no current_uow is set' do
-    expect {
-      Persisty::Persistence::UnitOfWork.current
-    }.to raise_error(Persisty::Persistence::UnitOfWorkNotStartedError)
-
     new_registry = double(:entity_registry)
     new_track    = double(:dirty_tracking)
 

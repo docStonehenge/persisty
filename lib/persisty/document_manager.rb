@@ -3,12 +3,6 @@ module Persisty
     def initialize
       connection    = Databases::MongoDB::Client.current_or_new_connection
       @id_generator = connection.id_generator
-
-      begin
-        unit_of_work
-      rescue Persistence::UnitOfWorkNotStartedError
-        start_new_unit_of_work
-      end
     end
 
     def find(entity_type, entity_id)

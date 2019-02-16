@@ -405,9 +405,8 @@ module Persisty
           end
 
           yield
+
           Persistence::UnitOfWork.current.register_changed(self)
-        rescue Persistence::UnitOfWorkNotStartedError
-          yield
         end
       end
     end

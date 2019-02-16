@@ -21,20 +21,6 @@ module Persisty
       end
 
       describe '#find id' do
-        context 'when no UnitOfWork is set on current Thread' do
-          it 'raises error on call to get loaded entities' do
-            allow(BSON::ObjectId).to receive(:try_convert).with('123').and_return '123'
-
-            expect(
-              Persistence::UnitOfWork
-            ).to receive(:current).and_raise Persistence::UnitOfWorkNotStartedError
-
-            expect {
-              subject.find('123')
-            }.to raise_error(Persistence::UnitOfWorkNotStartedError)
-          end
-        end
-
         context 'when entity is not yet loaded on registry' do
           before do
             allow(Persistence::UnitOfWork).to receive(:current).and_return uow
@@ -100,22 +86,6 @@ module Persisty
       end
 
       describe '#find_all filter: {}, **options' do
-        it 'raises error when call to current UnitOfWork raises error' do
-          expect(client).to receive(:find_on).with(
-                              :stub_entities, filter: {}
-                            ).and_return(
-                              [{ '_id' => 1 }]
-                            )
-
-          expect(
-            Persistence::UnitOfWork
-          ).to receive(:current).and_raise Persistence::UnitOfWorkNotStartedError
-
-          expect {
-            subject.find_all
-          }.to raise_error(Persistence::UnitOfWorkNotStartedError)
-        end
-
         context 'when UnitOfWork has no clean objects loaded' do
           before do
             allow(Persistence::UnitOfWork).to receive(:current).and_return uow
