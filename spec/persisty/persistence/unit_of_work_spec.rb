@@ -305,10 +305,6 @@ module Persisty
       end
 
       describe '#managed? entity' do
-        before do
-          entity.id = BSON::ObjectId.new
-        end
-
         it 'is true when entity is present on clean entities' do
           subject.register_clean entity
           expect(subject.managed?(entity)).to be true
@@ -346,10 +342,6 @@ module Persisty
         end
 
         context 'when entity is present on list' do
-          before do
-            entity.id = BSON::ObjectId.new
-          end
-
           it 'is false when entity is present on clean entities' do
             subject.register_clean entity
             expect(subject.detached?(entity)).to be false

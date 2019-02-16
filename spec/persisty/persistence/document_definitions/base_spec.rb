@@ -194,8 +194,6 @@ module Persisty
 
                   described_class.child_node :stub_entity
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
 
                   expect(
@@ -217,8 +215,6 @@ module Persisty
 
                   described_class.child_node :stub_entity
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
 
                   expect(
@@ -238,8 +234,7 @@ module Persisty
 
                   described_class.child_node :stub_entity
 
-                  @subject.id = BSON::ObjectId.new
-                  entity.id   = BSON::ObjectId.new
+                  entity.id = BSON::ObjectId.new
                   @subject.instance_variable_set '@stub_entity', entity
 
                   expect(Repositories::Registry).not_to receive(:[]).with(any_args)
@@ -255,7 +250,6 @@ module Persisty
 
                   described_class.child_node :stub_entity
 
-                  @subject.id = BSON::ObjectId.new
                   @subject.instance_variable_set '@stub_entity', previous_child
 
                   expect(previous_child).to receive(:test_class_id=).once.with(nil)
@@ -271,8 +265,6 @@ module Persisty
                   StubEntity.parent_node :test_class
                   described_class.child_node :stub_entity
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(Persistence::UnitOfWork).not_to receive(:current)
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
@@ -286,8 +278,6 @@ module Persisty
 
                   described_class.child_node :stub_entity
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(Persistence::UnitOfWork).not_to receive(:current)
 
                   @subject.stub_entity = nil
@@ -298,8 +288,7 @@ module Persisty
 
                   described_class.child_node :stub_entity
 
-                  @subject.id = BSON::ObjectId.new
-                  entity.id   = BSON::ObjectId.new
+                  entity.id = BSON::ObjectId.new
                   @subject.instance_variable_set '@stub_entity', entity
 
                   expect(entity).not_to receive(:test_class=).with(any_args)
@@ -313,8 +302,7 @@ module Persisty
                   described_class.child_node :stub_entity
 
                   another_parent = TestClass.new(id: BSON::ObjectId.new)
-                  @subject.id = BSON::ObjectId.new
-                  entity.id   = BSON::ObjectId.new
+                  entity.id      = BSON::ObjectId.new
                   @subject.instance_variable_set '@stub_entity', entity
                   entity.test_class = another_parent
 
@@ -328,8 +316,6 @@ module Persisty
                   StubEntity.parent_node :test_class
 
                   described_class.child_node :stub_entity
-
-                  @subject.id = BSON::ObjectId.new
 
                   expect {
                     @subject.stub_entity = Object.new
@@ -372,8 +358,6 @@ module Persisty
 
                   described_class.child_node :foo, class_name: ::StubEntity
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(@subject.instance_variable_get(:@foo)).to be_nil
 
                   expect(
@@ -395,8 +379,6 @@ module Persisty
 
                   described_class.child_node :foo, class_name: StubEntity
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(@subject.instance_variable_get(:@foo)).to be_nil
 
                   expect(
@@ -416,8 +398,7 @@ module Persisty
 
                   described_class.child_node :foo, class_name: 'StubEntity'
 
-                  @subject.id = BSON::ObjectId.new
-                  entity.id   = BSON::ObjectId.new
+                  entity.id = BSON::ObjectId.new
 
                   @subject.instance_variable_set '@foo', entity
 
@@ -434,7 +415,6 @@ module Persisty
 
                   described_class.child_node :foo, class_name: StubEntity
 
-                  @subject.id = BSON::ObjectId.new
                   @subject.instance_variable_set '@foo', previous_child
 
                   expect(previous_child).to receive(:test_class=).once.with(nil)
@@ -449,8 +429,6 @@ module Persisty
                   StubEntity.parent_node :test_class
                   described_class.child_node :foo, class_name: 'StubEntity'
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(Persistence::UnitOfWork).not_to receive(:current)
                   expect(entity).to receive(:test_class=).once.with(@subject)
 
@@ -464,8 +442,6 @@ module Persisty
 
                   described_class.child_node :foo, class_name: ::StubEntity
 
-                  @subject.id = BSON::ObjectId.new
-
                   expect(Persistence::UnitOfWork).not_to receive(:current)
 
                   @subject.foo = nil
@@ -476,8 +452,7 @@ module Persisty
 
                   described_class.child_node :foo, class_name: StubEntity
 
-                  @subject.id = BSON::ObjectId.new
-                  entity.id   = BSON::ObjectId.new
+                  entity.id = BSON::ObjectId.new
                   @subject.instance_variable_set '@foo', entity
 
                   expect(entity).not_to receive(:test_class=).with(any_args)
@@ -490,8 +465,6 @@ module Persisty
                   StubEntity.parent_node :test_class
 
                   described_class.child_node :foo, class_name: 'StubEntity'
-
-                  @subject.id = BSON::ObjectId.new
 
                   expect {
                     @subject.foo = Object.new
@@ -868,29 +841,7 @@ module Persisty
           context 'attributes' do
             describe '.define_field name, type:' do
               context 'when field is ID' do
-                context 'when entity is handled by current UnitOfWork' do
-                  before do
-                    @subject = described_class.new(id: BSON::ObjectId.new)
-                    Persistence::UnitOfWork.new_current
-                    Persistence::UnitOfWork.current.register_clean @subject
-                  end
-
-                  it 'defines reader and writer for field, and writer will raise ArgumentError' do
-                    expect(described_class.fields_list).to include(:id)
-                    expect(described_class.fields).to include(id: { type: BSON::ObjectId })
-
-                    expect(@subject).to respond_to :id
-                    expect(@subject).to respond_to(:id=)
-
-                    expect {
-                      expect {
-                        @subject.id = BSON::ObjectId.new
-                      }.to raise_error(ArgumentError, 'Cannot change ID from an entity that is still on current UnitOfWork')
-                    }.not_to change(@subject, :id)
-                  end
-                end
-
-                context "when entity isn't handled by current UnitOfWork" do
+                context 'when ID is nil' do
                   before do
                     @subject = described_class.new
                     Persistence::UnitOfWork.new_current
@@ -910,22 +861,40 @@ module Persisty
                   end
                 end
 
-                context "when UnitOfWork isn't started" do
+                context "when ID isn't nil" do
                   before do
-                    @subject = described_class.new
-                    Persistence::UnitOfWork.current = nil
+                    @subject = described_class.new(id: BSON::ObjectId.new)
+                    Persistence::UnitOfWork.new_current
                   end
 
-                  it 'defines reader and writer for field, allows setting id correctly' do
-                    expect(described_class.fields_list).to include(:id)
-                    expect(described_class.fields).to include(id: { type: BSON::ObjectId })
+                  context 'when new ID is the same as old value' do
+                    it 'defines reader and writer for field, and writer sets same value' do
+                      expect(described_class.fields_list).to include(:id)
+                      expect(described_class.fields).to include(id: { type: BSON::ObjectId })
 
-                    expect(@subject).to respond_to :id
-                    expect(@subject).to respond_to(:id=)
+                      expect(@subject).to respond_to :id
+                      expect(@subject).to respond_to(:id=)
 
-                    new_id = BSON::ObjectId.new
+                      expect {
+                        @subject.id = @subject.id
+                      }.not_to change(@subject, :id)
+                    end
+                  end
 
-                    expect { @subject.id = new_id }.to change(@subject, :id).to(new_id)
+                  context "when new ID isn't the same value" do
+                    it 'defines reader and writer for field, and writer raises ArgumentError' do
+                      expect(described_class.fields_list).to include(:id)
+                      expect(described_class.fields).to include(id: { type: BSON::ObjectId })
+
+                      expect(@subject).to respond_to :id
+                      expect(@subject).to respond_to(:id=)
+
+                      expect {
+                        expect {
+                          @subject.id = BSON::ObjectId.new
+                        }.not_to change(@subject, :id)
+                      }.to raise_error(ArgumentError, 'Cannot change ID when a previous value is already assigned.')
+                    end
                   end
                 end
               end

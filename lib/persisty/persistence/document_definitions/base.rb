@@ -263,7 +263,7 @@ module Persisty
             instance_eval do
               define_method("#{attribute}=") do |value|
                 new_value = Entities::Field.(type: type, value: value)
-                handle_registration_for_changes_on attribute do
+                handle_registration_for_changes_on attribute, new_value do
                   instance_variable_set(:"@#{attribute}", new_value)
                 end
               end
@@ -277,7 +277,7 @@ module Persisty
 
                 return if instance_variable_get(:"@#{foreign_key_field}") == new_value
 
-                handle_registration_for_changes_on foreign_key_field do
+                handle_registration_for_changes_on foreign_key_field, new_value do
                   instance_variable_set(:"@#{foreign_key_field}", new_value)
                 end
 
@@ -396,10 +396,12 @@ module Persisty
           end.each { |node, value| public_send("#{node}=", value) }
         end
 
-        def handle_registration_for_changes_on(attribute) # :nodoc:
-          if attribute == :id and !Persistence::UnitOfWork.current.detached? self
+        def handle_registration_for_changes_on(attribute, new_value) # :nodoc:
+          current_value = public_send(attribute)
+
+          if attribute == :id and !current_value.nil? and current_value != new_value
             raise ArgumentError,
-                  'Cannot change ID from an entity that is still on current UnitOfWork'
+                  'Cannot change ID when a previous value is already assigned.'
           end
 
           yield
