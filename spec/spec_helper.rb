@@ -18,4 +18,6 @@ RSpec.configure do |config|
   config.include Persisty::Matchers::FieldDefinedMatchers
 end
 
+require 'support/connection_definitions'
+
 Dir["spec/support/**/*.rb"].each { |f| load f }
