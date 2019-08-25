@@ -184,7 +184,7 @@ module Persisty
               ).to be_an_instance_of BigDecimal
 
               expect(
-                described_class.new(type: BigDecimal, value: "").coerce
+                described_class.new(type: BigDecimal, value: "1200.98").coerce
               ).to be_an_instance_of BigDecimal
             end
 
