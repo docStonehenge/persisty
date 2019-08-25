@@ -9,7 +9,7 @@ module Persisty
             subject.register :child_node, foo: { type: ::StubEntity, cascade: false }
 
             expect(
-              subject.nodes
+              subject.instance_variable_get(:@nodes)
             ).to include(child_node: { foo: { type: ::StubEntity, cascade: false } })
           end
 
@@ -17,7 +17,7 @@ module Persisty
             subject.register :child_nodes, foo: { type: ::StubEntity, cascade: false }
 
             expect(
-              subject.nodes
+              subject.instance_variable_get(:@nodes)
             ).to include(child_nodes: { foo: { type: ::StubEntity, cascade: false } })
           end
 
@@ -25,7 +25,7 @@ module Persisty
             subject.register :parent_node, foo: { type: ::StubEntity, cascade: false }
 
             expect(
-              subject.nodes
+              subject.instance_variable_get(:@nodes)
             ).to include(parent_node: { foo: { type: ::StubEntity, cascade: false } })
           end
 
@@ -57,6 +57,65 @@ module Persisty
                 subject.register :parent_node, foo: { type: ::StubEntity, cascade: false, foo: :bar }
               }.to raise_error(NodesReference::InvalidNodeDefinition, 'invalid node definition')
             end
+          end
+        end
+
+        describe '#parent_nodes_list' do
+          it 'returns an array with all parent_node keys' do
+            subject.register :parent_node, post: { type: ::StubEntity, cascade: false }
+            subject.register :parent_node, author: { type: ::StubEntity, cascade: false }
+
+            expect(subject.parent_nodes_list).to eql [:post, :author]
+          end
+        end
+
+        describe '#parent_nodes_map' do
+          it 'returns the hash with all parent_node definitions' do
+            subject.register :parent_node, post: { type: ::StubEntity, cascade: false }
+            subject.register :parent_node, author: { type: ::StubEntity, cascade: false }
+
+            expect(
+              subject.parent_nodes_map
+            ).to eql(
+                   post: { type: ::StubEntity, cascade: false },
+                   author: { type: ::StubEntity, cascade: false }
+                 )
+          end
+        end
+
+        describe '#child_nodes_list' do
+          it 'returns an array with all child_node keys' do
+            subject.register :child_node, child: { type: ::StubEntity, cascade: false }
+
+            expect(subject.child_nodes_list).to eql [:child]
+          end
+        end
+
+        describe '#child_nodes_map' do
+          it 'returns the hash with all child_node definitions' do
+            subject.register :child_node, child: { type: ::StubEntity, cascade: false }
+
+            expect(
+              subject.child_nodes_map
+            ).to eql(child: { type: ::StubEntity, cascade: false })
+          end
+        end
+
+        describe '#child_nodes_collections_list' do
+          it 'returns an array with all child_nodes keys' do
+            subject.register :child_nodes, posts: { type: ::StubEntity, cascade: false }
+
+            expect(subject.child_nodes_collections_list).to eql [:posts]
+          end
+        end
+
+        describe '#child_nodes_collections_map' do
+          it 'returns the hash with all child_nodes definitions' do
+            subject.register :child_nodes, posts: { type: ::StubEntity, cascade: false }
+
+            expect(
+              subject.child_nodes_collections_map
+            ).to eql(posts: { type: ::StubEntity, cascade: false })
           end
         end
       end
