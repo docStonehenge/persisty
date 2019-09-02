@@ -118,6 +118,54 @@ module Persisty
             ).to eql(posts: { type: ::StubEntity, cascade: false })
           end
         end
+
+        describe '#parent_node_for klass' do
+          context 'when node definition is present' do
+            it 'returns node key' do
+              subject.register :parent_node, foo: { type: ::StubEntity, cascade: false }
+
+              expect(subject.parent_node_for(::StubEntity)).to eql :foo
+            end
+          end
+
+          context "when node definition isn't present" do
+            it 'returns nil' do
+              expect(subject.parent_node_for(::StubEntity)).to be_nil
+            end
+          end
+        end
+
+        describe '#child_node_for klass' do
+          context 'when node definition is present' do
+            it 'returns node key' do
+              subject.register :child_node, foo: { type: ::StubEntity, cascade: false }
+
+              expect(subject.child_node_for(::StubEntity)).to eql :foo
+            end
+          end
+
+          context "when node definition isn't present" do
+            it 'returns nil' do
+              expect(subject.child_node_for(::StubEntity)).to be_nil
+            end
+          end
+        end
+
+        describe '#child_nodes_collection_for klass' do
+          context 'when node definition is present' do
+            it 'returns node key' do
+              subject.register :child_nodes, foo: { type: ::StubEntity, cascade: false }
+
+              expect(subject.child_nodes_collection_for(::StubEntity)).to eql :foo
+            end
+          end
+
+          context "when node definition isn't present" do
+            it 'returns nil' do
+              expect(subject.child_nodes_collection_for(::StubEntity)).to be_nil
+            end
+          end
+        end
       end
     end
   end
