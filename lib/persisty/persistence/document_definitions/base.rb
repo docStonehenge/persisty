@@ -344,7 +344,7 @@ module Persisty
               return if previous_child and previous_child.id == child_obj&.id
 
               handle_previous_child_removal previous_child, child_set_parent_node
-              child_obj.public_send("#{child_set_parent_node}=", self) if child_obj
+              child_obj&.public_send("#{child_set_parent_node}=", self)
               instance_variable_set("@#{child_name}", child_obj)
             end
           end

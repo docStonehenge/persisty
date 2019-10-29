@@ -28,7 +28,7 @@ module Persisty
           end
 
           context 'associations' do
-            describe '.child_nodes name, class_name:' do
+            describe '.child_nodes name, class_name:, foreign_key:' do
               let(:collection_builder) { double(:collection_builder) }
 
               before do
