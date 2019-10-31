@@ -26,4 +26,10 @@ describe 'String class extension' do
       expect("\t").not_to be_present
     end
   end
+
+  describe '#underscore' do
+    it 'returns self version underscored by an Underscorer instance' do
+      expect('StubEntityForCollection'.underscore).to eql 'stub_entity_for_collection'
+    end
+  end
 end

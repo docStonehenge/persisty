@@ -164,7 +164,7 @@ module Persisty
             node, klass = node_parser.node_name, node_parser.node_class
 
             parent = (
-              foreign_key.present? ? foreign_key.to_s.gsub(/_id$/, '') : StringModifiers::Underscorer.new.underscore(self.name)
+              foreign_key.present? ? foreign_key.to_s.gsub(/_id$/, '') : self.name.underscore
             ).to_sym
 
             definition = { node: node.to_sym, class: klass, cascade: cascade, foreign_key: foreign_key }
@@ -193,10 +193,19 @@ module Persisty
             end
           end
 
-          def child_node(name, class_name: nil)
+          def child_node(name, class_name: nil, cascade: false, foreign_key: nil)
             node, klass = parse_node_identification(name, class_name)
+
+            parent = (
+              foreign_key.present? ? foreign_key.to_s.gsub(/_id$/, '') : self.name.underscore
+            ).to_sym
+
+            definition = { node: node.to_sym, class: klass, cascade: cascade, foreign_key: foreign_key }
+            nodes_reference.register_child_node(parent, self, definition)
+            klass.nodes_reference.register_child_node(parent, self, definition)
+
             register_defined_node(:child_node, node, klass)
-            child_set_parent_node = parent_node_on(klass)
+            child_set_parent_node = parent_node_on(klass, parent)
 
             instance_eval do
               define_single_child_node_reader(node, klass, child_set_parent_node)
@@ -260,12 +269,8 @@ module Persisty
             [node_parser.node_name, node_parser.node_class]
           end
 
-          def parent_node_on(klass)
-            unless (node_name = klass.parent_nodes_map.key(self))
-              raise Errors::NoParentNodeError
-            end
-
-            node_name
+          def parent_node_on(klass, parent_node_name)
+            klass.nodes_reference.parent_node_for(parent_node_name, self).name
           end
 
           def register_defined_field(name, type)

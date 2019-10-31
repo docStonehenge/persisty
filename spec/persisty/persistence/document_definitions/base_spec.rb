@@ -265,194 +265,365 @@ module Persisty
               end
             end
 
-            describe '.child_node name, class_name:' do
+            describe '.child_node name, class_name:, cascade:, foreign_key:' do
               before do
                 @subject = described_class.new(id: BSON::ObjectId.new)
               end
 
-              context 'when class_name is nil' do
-                it 'sets child node field to lazy load object' do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(class: described_class)
+              context 'when foreign_key is nil' do
+                context 'when class_name is nil' do
+                  it 'sets child node field to lazy load object' do
+                    StubEntity.parent_node :test_class
 
-                  described_class.child_node :stub_entity
+                    described_class.child_node :stub_entity, cascade: true
 
-                  expect(described_class.child_nodes_list).to include(:stub_entity)
-                  expect(described_class.child_nodes_map).to include(stub_entity: ::StubEntity)
-                  expect(@subject).to respond_to :stub_entity
-                  expect(@subject).to respond_to(:stub_entity=)
-                end
+                    expect(described_class.child_nodes_list).to include(:stub_entity)
+                    expect(described_class.child_nodes_map).to include(stub_entity: ::StubEntity)
+                    expect(@subject).to respond_to :stub_entity
+                    expect(@subject).to respond_to(:stub_entity=)
 
-                it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
-                  allow(StubEntity).to receive(:parent_nodes_map).and_return({})
+                    expect(
+                      described_class.nodes_reference.values
+                    ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: nil }]))
 
-                  expect {
+                    expect(
+                      StubEntity.nodes_reference.values
+                    ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: nil }]))
+                  end
+
+                  it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
+                    expect {
+                      described_class.child_node :stub_entity
+                    }.to raise_error(
+                           Errors::NoParentNodeError,
+                           "Child node class must have a foreign_key field set for parent. "\
+                           "Use '.parent_node' method on child class to set correct parent_node relation."
+                         )
+                  end
+
+                  it "raises NoParentNodeError when child node class doesn't have parent expected" do
+                    StubEntity.parent_node :foo, class_name: ::TestClass
+
+                    expect {
+                      described_class.child_node :stub_entity
+                    }.to raise_error(
+                           Errors::NoParentNodeError,
+                           "Child node class must have a foreign_key field set for parent. "\
+                           "Use '.parent_node' method on child class to set correct parent_node relation."
+                         )
+                  end
+
+                  it 'performs lazy load on child node reader finding by parent id' do
+                    StubEntity.parent_node :test_class
+
                     described_class.child_node :stub_entity
-                  }.to raise_error(
-                         Errors::NoParentNodeError,
-                         "Child node class must have a foreign_key field set for parent. "\
-                         "Use '.parent_node' method on child class to set correct parent_node relation."
-                       )
+
+                    expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+
+                    expect(
+                      Repositories::Registry
+                    ).to receive(:[]).once.with(StubEntity).and_return repository
+
+                    expect(
+                      repository
+                    ).to receive(:find_all).once.with(filter: { test_class_id: @subject.id }).and_return [entity]
+
+                    expect(@subject.stub_entity).to eql entity
+                    expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+                  end
+
+                  it 'returns nil on reader when no child has been found' do
+                    StubEntity.parent_node :test_class
+
+                    described_class.child_node :stub_entity
+
+                    expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+
+                    expect(
+                      Repositories::Registry
+                    ).to receive(:[]).once.with(StubEntity).and_return repository
+
+                    expect(
+                      repository
+                    ).to receive(:find_all).once.with(filter: { test_class_id: @subject.id }).and_return []
+
+                    expect(@subject.stub_entity).to be_nil
+                    expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                  end
+
+                  it "doesn't call repository when child node is already present" do
+                    StubEntity.parent_node :test_class
+
+                    described_class.child_node :stub_entity
+
+                    entity.id = BSON::ObjectId.new
+                    @subject.instance_variable_set '@stub_entity', entity
+
+                    expect(Repositories::Registry).not_to receive(:[]).with(any_args)
+
+                    expect(@subject.stub_entity).to eql entity
+                    expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+                  end
+
+                  it 'resolves parent at child on child node writer, registering previous child to be removed' do
+                    StubEntity.parent_node :test_class
+
+                    previous_child = StubEntity.new(id: BSON::ObjectId.new, test_class: @subject)
+
+                    described_class.child_node :stub_entity
+
+                    @subject.instance_variable_set '@stub_entity', previous_child
+
+                    expect(previous_child).to receive(:test_class_id=).once.with(nil)
+                    expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                    expect(uow).to receive(:register_removed).once.with(previous_child)
+
+                    expect(entity).to receive(:test_class=).once.with(@subject)
+
+                    @subject.stub_entity = entity
+                  end
+
+                  it 'resolves parent at child on child node writer, not registering previous nil child' do
+                    StubEntity.parent_node :test_class
+                    described_class.child_node :stub_entity
+
+                    expect(Persistence::UnitOfWork).not_to receive(:current)
+                    expect(entity).to receive(:test_class=).once.with(@subject)
+
+                    @subject.stub_entity = entity
+                  end
+
+                  it "doesn't try to change foreign key on nil child" do
+                    StubEntity.parent_node :test_class
+
+                    described_class.child_node :stub_entity
+
+                    expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                    @subject.stub_entity = nil
+                  end
+
+                  it "doesn't try to change parent on same child as previous" do
+                    StubEntity.parent_node :test_class
+
+                    described_class.child_node :stub_entity
+
+                    entity.id = BSON::ObjectId.new
+                    @subject.instance_variable_set '@stub_entity', entity
+
+                    expect(entity).not_to receive(:test_class=).with(any_args)
+                    expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                    @subject.stub_entity = entity
+                  end
+
+                  it "doesn't try to remove previous child that doesn't match parent" do
+                    StubEntity.parent_node :test_class
+                    described_class.child_node :stub_entity
+
+                    another_parent = TestClass.new(id: BSON::ObjectId.new)
+                    entity.id      = BSON::ObjectId.new
+                    @subject.instance_variable_set '@stub_entity', entity
+                    entity.test_class = another_parent
+
+                    expect(entity).not_to receive(:test_class=).with(any_args)
+                    expect(Persistence::UnitOfWork).not_to receive(:current)
+
+                    @subject.stub_entity = nil
+                  end
+
+                  it 'raises TypeError when trying to assign object of different type' do
+                    StubEntity.parent_node :test_class
+
+                    described_class.child_node :stub_entity
+
+                    expect {
+                      @subject.stub_entity = Object.new
+                    }.to raise_error(TypeError, "Object is a type mismatch from defined node 'stub_entity'")
+                  end
                 end
 
-                it 'performs lazy load on child node reader finding by parent id' do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(class: described_class)
+                context 'when class_name is present' do
+                  it 'sets child node field to lazy load object based on class_name' do
+                    StubEntity.parent_node :test_class
 
-                  described_class.child_node :stub_entity
+                    described_class.child_node :foo, class_name: ::StubEntity
 
-                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                    subject = described_class.new(id: BSON::ObjectId.new)
 
-                  expect(
-                    Repositories::Registry
-                  ).to receive(:[]).once.with(StubEntity).and_return repository
+                    expect(described_class.child_nodes_list).to include(:foo)
+                    expect(described_class.child_nodes_map).to include(foo: ::StubEntity)
+                    expect(subject).to respond_to :foo
+                    expect(subject).to respond_to(:foo=)
+                  end
 
-                  expect(
-                    repository
-                  ).to receive(:find_all).once.with(filter: { class_id: @subject.id }).and_return [entity]
+                  it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
+                    expect {
+                      described_class.child_node :foo, class_name: ::StubEntity
+                    }.to raise_error(
+                           Errors::NoParentNodeError,
+                           "Child node class must have a foreign_key field set for parent. "\
+                           "Use '.parent_node' method on child class to set correct parent_node relation."
+                         )
+                  end
 
-                  expect(@subject.stub_entity).to eql entity
-                  expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
-                end
+                  it 'performs lazy load on child node reader finding by parent id' do
+                    StubEntity.parent_node :test_class
 
-                it 'returns nil on reader when no child has been found' do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(class: described_class)
+                    described_class.child_node :foo, class_name: ::StubEntity
 
-                  described_class.child_node :stub_entity
+                    expect(@subject.instance_variable_get(:@foo)).to be_nil
 
-                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+                    expect(
+                      Repositories::Registry
+                    ).to receive(:[]).once.with(StubEntity).and_return repository
 
-                  expect(
-                    Repositories::Registry
-                  ).to receive(:[]).once.with(StubEntity).and_return repository
+                    expect(
+                      repository
+                    ).to receive(:find_all).once.with(filter: { test_class_id: @subject.id }).and_return [entity]
 
-                  expect(
-                    repository
-                  ).to receive(:find_all).once.with(filter: { class_id: @subject.id }).and_return []
+                    expect(@subject.foo).to eql entity
+                    expect(@subject.instance_variable_get(:@foo)).to eql entity
+                  end
 
-                  expect(@subject.stub_entity).to be_nil
-                  expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
-                end
+                  it 'returns nil on reader when no child has been found' do
+                    StubEntity.parent_node :test_class
 
-                it "doesn't call repository when child node is already present" do
-                  StubEntity.parent_node :test_class
+                    described_class.child_node :foo, class_name: StubEntity
 
-                  described_class.child_node :stub_entity
+                    expect(@subject.instance_variable_get(:@foo)).to be_nil
 
-                  entity.id = BSON::ObjectId.new
-                  @subject.instance_variable_set '@stub_entity', entity
+                    expect(
+                      Repositories::Registry
+                    ).to receive(:[]).once.with(StubEntity).and_return repository
 
-                  expect(Repositories::Registry).not_to receive(:[]).with(any_args)
+                    expect(
+                      repository
+                    ).to receive(:find_all).once.with(filter: { test_class_id: @subject.id }).and_return []
 
-                  expect(@subject.stub_entity).to eql entity
-                  expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
-                end
+                    expect(@subject.foo).to be_nil
+                    expect(@subject.instance_variable_get(:@foo)).to be_nil
+                  end
 
-                it 'resolves parent at child on child node writer, registering previous child to be removed' do
-                  StubEntity.parent_node :test_class
+                  it "doesn't call repository when child node is already present" do
+                    StubEntity.parent_node :test_class
 
-                  previous_child = StubEntity.new(id: BSON::ObjectId.new, test_class: @subject)
+                    described_class.child_node :foo, class_name: 'StubEntity'
 
-                  described_class.child_node :stub_entity
+                    entity.id = BSON::ObjectId.new
 
-                  @subject.instance_variable_set '@stub_entity', previous_child
+                    @subject.instance_variable_set '@foo', entity
 
-                  expect(previous_child).to receive(:test_class_id=).once.with(nil)
-                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
-                  expect(uow).to receive(:register_removed).once.with(previous_child)
+                    expect(Repositories::Registry).not_to receive(:[]).with(any_args)
 
-                  expect(entity).to receive(:test_class=).once.with(@subject)
+                    expect(@subject.foo).to eql entity
+                    expect(@subject.instance_variable_get(:@foo)).to eql entity
+                  end
 
-                  @subject.stub_entity = entity
-                end
+                  it 'resolves parent at child on child node writer, registering previous child to be removed' do
+                    StubEntity.parent_node :test_class
 
-                it 'resolves parent at child on child node writer, not registering previous nil child' do
-                  StubEntity.parent_node :test_class
-                  described_class.child_node :stub_entity
+                    previous_child = StubEntity.new(id: BSON::ObjectId.new, test_class: @subject)
 
-                  expect(Persistence::UnitOfWork).not_to receive(:current)
-                  expect(entity).to receive(:test_class=).once.with(@subject)
+                    described_class.child_node :foo, class_name: StubEntity
 
-                  @subject.stub_entity = entity
-                end
+                    @subject.instance_variable_set '@foo', previous_child
 
-                it "doesn't try to change foreign key on nil child" do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(test_class: described_class)
+                    expect(previous_child).to receive(:test_class=).once.with(nil)
+                    expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                    expect(uow).to receive(:register_removed).once.with(previous_child)
+                    expect(entity).to receive(:test_class=).once.with(@subject)
 
-                  described_class.child_node :stub_entity
+                    @subject.foo = entity
+                  end
 
-                  expect(Persistence::UnitOfWork).not_to receive(:current)
+                  it 'resolves parent at child on child node writer, not registering previous nil child' do
+                    StubEntity.parent_node :test_class
+                    described_class.child_node :foo, class_name: 'StubEntity'
 
-                  @subject.stub_entity = nil
-                end
+                    expect(Persistence::UnitOfWork).not_to receive(:current)
+                    expect(entity).to receive(:test_class=).once.with(@subject)
 
-                it "doesn't try to change parent on same child as previous" do
-                  StubEntity.parent_node :test_class
+                    @subject.foo = entity
+                  end
 
-                  described_class.child_node :stub_entity
+                  it "doesn't try to change foreign key on nil child" do
+                    StubEntity.parent_node :test_class
 
-                  entity.id = BSON::ObjectId.new
-                  @subject.instance_variable_set '@stub_entity', entity
+                    described_class.child_node :foo, class_name: ::StubEntity
 
-                  expect(entity).not_to receive(:test_class=).with(any_args)
-                  expect(Persistence::UnitOfWork).not_to receive(:current)
+                    expect(Persistence::UnitOfWork).not_to receive(:current)
 
-                  @subject.stub_entity = entity
-                end
+                    @subject.foo = nil
+                  end
 
-                it "doesn't try to remove previous child that doesn't match parent" do
-                  StubEntity.parent_node :test_class
-                  described_class.child_node :stub_entity
+                  it "doesn't try to change parent on same child as previous" do
+                    StubEntity.parent_node :test_class
 
-                  another_parent = TestClass.new(id: BSON::ObjectId.new)
-                  entity.id      = BSON::ObjectId.new
-                  @subject.instance_variable_set '@stub_entity', entity
-                  entity.test_class = another_parent
+                    described_class.child_node :foo, class_name: StubEntity
 
-                  expect(entity).not_to receive(:test_class=).with(any_args)
-                  expect(Persistence::UnitOfWork).not_to receive(:current)
+                    entity.id = BSON::ObjectId.new
+                    @subject.instance_variable_set '@foo', entity
 
-                  @subject.stub_entity = nil
-                end
+                    expect(entity).not_to receive(:test_class=).with(any_args)
+                    expect(Persistence::UnitOfWork).not_to receive(:current)
 
-                it 'raises TypeError when trying to assign object of different type' do
-                  StubEntity.parent_node :test_class
+                    @subject.foo = entity
+                  end
 
-                  described_class.child_node :stub_entity
+                  it 'raises TypeError when trying to assign object of different type' do
+                    StubEntity.parent_node :test_class
 
-                  expect {
-                    @subject.stub_entity = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined node 'stub_entity'")
+                    described_class.child_node :foo, class_name: 'StubEntity'
+
+                    expect {
+                      @subject.foo = Object.new
+                    }.to raise_error(TypeError, "Object is a type mismatch from defined node 'foo'")
+                  end
                 end
               end
 
-              context 'when class_name is present' do
-                it 'sets child node field to lazy load object based on class_name' do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(parent_name: described_class)
+              context "when foreign_key isn't nil" do
+                it 'adds name to child_nodes_map, list and sets accessors' do
+                  StubEntity.parent_node :foo, class_name: ::TestClass
 
-                  described_class.child_node :foo, class_name: ::StubEntity
+                  described_class.child_node :stub_entity, cascade: true, foreign_key: :foo_id
 
-                  subject = described_class.new(id: BSON::ObjectId.new)
+                  expect(described_class.child_nodes_list).to include(:stub_entity)
+                  expect(described_class.child_nodes_map).to include(stub_entity: ::StubEntity)
 
-                  expect(described_class.child_nodes_list).to include(:foo)
-                  expect(described_class.child_nodes_map).to include(foo: ::StubEntity)
-                  expect(subject).to respond_to :foo
-                  expect(subject).to respond_to(:foo=)
+                  expect(@subject).to respond_to :stub_entity
+                  expect(@subject).to respond_to(:stub_entity=)
+
+                  expect(
+                    described_class.nodes_reference.values
+                  ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: :foo_id }]))
+
+                  expect(
+                    StubEntity.nodes_reference.values
+                  ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: :foo_id }]))
+                end
+
+                it 'adds name to child_nodes map, even with redundant foreign_key' do
+                  StubEntity.parent_node :test_class
+
+                  described_class.child_node :stub_entity, cascade: true, foreign_key: :test_class_id
+
+                  expect(@subject).to respond_to :stub_entity
+                  expect(@subject).to respond_to(:stub_entity=)
+
+                  expect(
+                    described_class.nodes_reference.values
+                  ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: :test_class_id }]))
+
+                  expect(
+                    StubEntity.nodes_reference.values
+                  ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: :test_class_id }]))
                 end
 
                 it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
-                  allow(StubEntity).to receive(:parent_nodes_map).and_return({})
-
                   expect {
-                    described_class.child_node :foo, class_name: ::StubEntity
+                    described_class.child_node :foo, class_name: 'StubEntity', foreign_key: :foo_id
                   }.to raise_error(
                          Errors::NoParentNodeError,
                          "Child node class must have a foreign_key field set for parent. "\
@@ -460,124 +631,16 @@ module Persisty
                        )
                 end
 
-                it 'performs lazy load on child node reader finding by parent id' do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(parent_name: described_class)
-
-                  described_class.child_node :foo, class_name: ::StubEntity
-
-                  expect(@subject.instance_variable_get(:@foo)).to be_nil
-
-                  expect(
-                    Repositories::Registry
-                  ).to receive(:[]).once.with(StubEntity).and_return repository
-
-                  expect(
-                    repository
-                  ).to receive(:find_all).once.with(filter: { parent_name_id: @subject.id }).and_return [entity]
-
-                  expect(@subject.foo).to eql entity
-                  expect(@subject.instance_variable_get(:@foo)).to eql entity
-                end
-
-                it 'returns nil on reader when no child has been found' do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(class: described_class)
-
-                  described_class.child_node :foo, class_name: StubEntity
-
-                  expect(@subject.instance_variable_get(:@foo)).to be_nil
-
-                  expect(
-                    Repositories::Registry
-                  ).to receive(:[]).once.with(StubEntity).and_return repository
-
-                  expect(
-                    repository
-                  ).to receive(:find_all).once.with(filter: { class_id: @subject.id }).and_return []
-
-                  expect(@subject.foo).to be_nil
-                  expect(@subject.instance_variable_get(:@foo)).to be_nil
-                end
-
-                it "doesn't call repository when child node is already present" do
+                it "raises NoParentNodeError when child node class doesn't have parent expected" do
                   StubEntity.parent_node :test_class
-
-                  described_class.child_node :foo, class_name: 'StubEntity'
-
-                  entity.id = BSON::ObjectId.new
-
-                  @subject.instance_variable_set '@foo', entity
-
-                  expect(Repositories::Registry).not_to receive(:[]).with(any_args)
-
-                  expect(@subject.foo).to eql entity
-                  expect(@subject.instance_variable_get(:@foo)).to eql entity
-                end
-
-                it 'resolves parent at child on child node writer, registering previous child to be removed' do
-                  StubEntity.parent_node :test_class
-
-                  previous_child = StubEntity.new(id: BSON::ObjectId.new, test_class: @subject)
-
-                  described_class.child_node :foo, class_name: StubEntity
-
-                  @subject.instance_variable_set '@foo', previous_child
-
-                  expect(previous_child).to receive(:test_class=).once.with(nil)
-                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
-                  expect(uow).to receive(:register_removed).once.with(previous_child)
-                  expect(entity).to receive(:test_class=).once.with(@subject)
-
-                  @subject.foo = entity
-                end
-
-                it 'resolves parent at child on child node writer, not registering previous nil child' do
-                  StubEntity.parent_node :test_class
-                  described_class.child_node :foo, class_name: 'StubEntity'
-
-                  expect(Persistence::UnitOfWork).not_to receive(:current)
-                  expect(entity).to receive(:test_class=).once.with(@subject)
-
-                  @subject.foo = entity
-                end
-
-                it "doesn't try to change foreign key on nil child" do
-                  allow(StubEntity).to receive(
-                                         :parent_nodes_map
-                                       ).and_return(test_class: described_class)
-
-                  described_class.child_node :foo, class_name: ::StubEntity
-
-                  expect(Persistence::UnitOfWork).not_to receive(:current)
-
-                  @subject.foo = nil
-                end
-
-                it "doesn't try to change parent on same child as previous" do
-                  StubEntity.parent_node :test_class
-
-                  described_class.child_node :foo, class_name: StubEntity
-
-                  entity.id = BSON::ObjectId.new
-                  @subject.instance_variable_set '@foo', entity
-
-                  expect(entity).not_to receive(:test_class=).with(any_args)
-                  expect(Persistence::UnitOfWork).not_to receive(:current)
-
-                  @subject.foo = entity
-                end
-
-                it 'raises TypeError when trying to assign object of different type' do
-                  StubEntity.parent_node :test_class
-
-                  described_class.child_node :foo, class_name: 'StubEntity'
 
                   expect {
-                    @subject.foo = Object.new
-                  }.to raise_error(TypeError, "Object is a type mismatch from defined node 'foo'")
+                    described_class.child_node :foo, class_name: 'StubEntity', foreign_key: :bar_id
+                  }.to raise_error(
+                         Errors::NoParentNodeError,
+                         "Child node class must have a foreign_key field set for parent. "\
+                         "Use '.parent_node' method on child class to set correct parent_node relation."
+                       )
                 end
               end
             end
@@ -1121,13 +1184,15 @@ module Persisty
           class ::TestEntity
             include Base
 
-            parent_node :stub_entity
-
             define_field :first_name, type: String
             define_field :dob,        type: Date
           end
 
           let(:described_class) { ::TestEntity }
+
+          before do
+            described_class.parent_node :stub_entity
+          end
 
           describe '#fields' do
             it 'returns list of fields set on object class' do
@@ -1175,12 +1240,11 @@ module Persisty
 
           describe '#child_nodes_collections_list' do
             it 'returns list of child_nodes collections set on object class' do
-              StubEntity.parent_node :parent_entity
-              ParentEntity.child_nodes :stub_entities
+              StubEntity.child_nodes :test_entities
 
-              subject = ParentEntity.new
+              subject = StubEntity.new
 
-              expect(subject.child_nodes_collections_list).to include :stub_entities
+              expect(subject.child_nodes_collections_list).to include :test_entities
             end
           end
 

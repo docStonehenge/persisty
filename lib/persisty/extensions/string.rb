@@ -6,4 +6,8 @@ class String
   def present?
     !strip.empty?
   end
+
+  def underscore
+    Persisty::StringModifiers::Underscorer.new.underscore(self)
+  end
 end
