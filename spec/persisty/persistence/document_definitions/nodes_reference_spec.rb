@@ -5,9 +5,16 @@ module Persisty
         include_context 'StubEntity'
 
         context 'as a Hash' do
-          it 'delegates has_key? to nodes hash' do
+          it 'delegates key related methods to nodes hash' do
+            expect(subject).to respond_to(:keys)
             expect(subject).to respond_to(:key?)
             expect(subject).to respond_to(:has_key?)
+          end
+
+          it 'delegates value related methods to nodes hash' do
+            expect(subject).to respond_to(:values)
+            expect(subject).to respond_to(:value?)
+            expect(subject).to respond_to(:has_value?)
           end
         end
 

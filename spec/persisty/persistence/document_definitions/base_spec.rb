@@ -38,31 +38,212 @@ module Persisty
           end
 
           context 'associations' do
-            describe '.child_nodes name, class_name:, foreign_key:' do
+            describe '.child_nodes name, class_name:, cascade:, foreign_key:' do
               let(:collection_builder) { double(:collection_builder) }
 
               before do
                 @subject = described_class.new(id: BSON::ObjectId.new)
               end
 
-              context 'when class_name is nil' do
-                it 'adds name to child_nodes_collections map, list and sets accessors' do
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
+              context 'when foreign_key is nil' do
+                context 'when class_name is nil' do
+                  it 'adds name to child_nodes_collections map, list and sets accessors' do
+                    StubEntityForCollection.parent_node :test_class
 
-                  described_class.child_nodes :stub_entity_for_collections
+                    described_class.child_nodes :stub_entity_for_collections, cascade: true
+
+                    expect(described_class.child_nodes_collections_list).to include(:stub_entity_for_collections)
+                    expect(described_class.child_nodes_collections_map).to include(stub_entity_for_collections: ::StubEntityForCollection)
+
+                    expect(@subject).to respond_to :stub_entity_for_collections
+                    expect(@subject).to respond_to(:stub_entity_for_collections=)
+
+                    expect(
+                      described_class.nodes_reference.values
+                    ).to include(a_hash_including(child_nodes: [{ node: :stub_entity_for_collections, class: ::StubEntityForCollection, cascade: true, foreign_key: nil }]))
+
+                    expect(
+                      StubEntityForCollection.nodes_reference.values
+                    ).to include(a_hash_including(child_nodes: [{ node: :stub_entity_for_collections, class: ::StubEntityForCollection, cascade: true, foreign_key: nil }]))
+                  end
+
+                  it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
+                    expect {
+                      described_class.child_nodes :stub_entity_for_collections
+                    }.to raise_error(
+                           Errors::NoParentNodeError,
+                           "Child node class must have a foreign_key field set for parent. "\
+                           "Use '.parent_node' method on child class to set correct parent_node relation."
+                         )
+                  end
+
+                  it "raises NoParentNodeError when child node class doesn't have parent expected" do
+                    StubEntityForCollection.parent_node :foo, class_name: ::TestClass
+
+                    expect {
+                      described_class.child_nodes :stub_entity_for_collections
+                    }.to raise_error(
+                           Errors::NoParentNodeError,
+                           "Child node class must have a foreign_key field set for parent. "\
+                           "Use '.parent_node' method on child class to set correct parent_node relation."
+                         )
+                  end
+
+                  it 'sets an instance of DocumentCollection on reader named after child node class' do
+                    StubEntityForCollection.parent_node :test_class
+
+                    described_class.child_nodes :stub_entity_for_collections
+
+                    collection = @subject.stub_entity_for_collections
+                    expect(collection).to be_an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+                    expect(@subject.stub_entity_for_collections).to equal(collection)
+                  end
+
+                  it 'assigns a DocumentCollection on writer, using previous collection' do
+                    entities = [entity_for_collection]
+
+                    StubEntityForCollection.parent_node :test_class
+
+                    described_class.child_nodes :stub_entity_for_collections
+
+                    previous_collection = @subject.stub_entity_for_collections
+
+                    expect(DocumentCollectionBuilder).to receive(:new).once.with(
+                                                           @subject,
+                                                           @subject.stub_entity_for_collections,
+                                                           StubEntityForCollection
+                                                         ).and_return collection_builder
+
+                    expect(
+                      collection_builder
+                    ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+
+                    @subject.stub_entity_for_collections = entities
+
+                    expect(@subject.stub_entity_for_collections).not_to equal previous_collection
+                  end
+                end
+
+                context "when class_name isn't nil" do
+                  it 'adds name to child_nodes_collections map, list and sets accessors' do
+                    StubEntityForCollection.parent_node :test_class
+
+                    described_class.child_nodes :foos, class_name: StubEntityForCollection
+
+                    expect(described_class.child_nodes_collections_list).to include(:foos)
+                    expect(described_class.child_nodes_collections_map).to include(foos: ::StubEntityForCollection)
+
+                    expect(@subject).to respond_to :foos
+                    expect(@subject).to respond_to(:foos=)
+
+                    expect(
+                      described_class.nodes_reference.values
+                    ).to include(a_hash_including(child_nodes: [{ node: :foos, class: ::StubEntityForCollection, cascade: false, foreign_key: nil }]))
+
+                    expect(
+                      StubEntityForCollection.nodes_reference.values
+                    ).to include(a_hash_including(child_nodes: [{ node: :foos, class: ::StubEntityForCollection, cascade: false, foreign_key: nil }]))
+                  end
+
+                  it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
+                    expect {
+                      described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
+                    }.to raise_error(
+                           Errors::NoParentNodeError,
+                           "Child node class must have a foreign_key field set for parent. "\
+                           "Use '.parent_node' method on child class to set correct parent_node relation."
+                         )
+                  end
+
+                  it "raises NoParentNodeError when child node class doesn't have parent expected" do
+                    StubEntityForCollection.parent_node :foo, class_name: ::TestClass
+
+                    expect {
+                      described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
+                    }.to raise_error(
+                           Errors::NoParentNodeError,
+                           "Child node class must have a foreign_key field set for parent. "\
+                           "Use '.parent_node' method on child class to set correct parent_node relation."
+                         )
+                  end
+
+                  it 'sets an instance of DocumentCollection on reader named after child node class' do
+                    StubEntityForCollection.parent_node :test_class
+
+                    described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
+
+                    collection = @subject.foos
+                    expect(collection).to be_an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+                    expect(@subject.foos).to equal(collection)
+                  end
+
+                  it 'assigns a DocumentCollection on writer, using previous collection' do
+                    entities = [entity_for_collection]
+
+                    StubEntityForCollection.parent_node :test_class
+
+                    described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
+
+                    previous_collection = @subject.foos
+
+                    expect(DocumentCollectionBuilder).to receive(:new).once.with(
+                                                           @subject,
+                                                           @subject.foos,
+                                                           StubEntityForCollection
+                                                         ).and_return collection_builder
+
+                    expect(
+                      collection_builder
+                    ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+
+                    @subject.foos = entities
+
+                    expect(@subject.foos).not_to equal previous_collection
+                  end
+                end
+              end
+
+              context "when foreign_key isn't nil" do
+                it 'adds name to child_nodes_collections map, list and sets accessors' do
+                  StubEntityForCollection.parent_node :foo, class_name: ::TestClass
+
+                  described_class.child_nodes :stub_entity_for_collections, cascade: true, foreign_key: :foo_id
 
                   expect(described_class.child_nodes_collections_list).to include(:stub_entity_for_collections)
                   expect(described_class.child_nodes_collections_map).to include(stub_entity_for_collections: ::StubEntityForCollection)
 
                   expect(@subject).to respond_to :stub_entity_for_collections
                   expect(@subject).to respond_to(:stub_entity_for_collections=)
+
+                  expect(
+                    described_class.nodes_reference.values
+                  ).to include(a_hash_including(child_nodes: [{ node: :stub_entity_for_collections, class: ::StubEntityForCollection, cascade: true, foreign_key: :foo_id }]))
+
+                  expect(
+                    StubEntityForCollection.nodes_reference.values
+                  ).to include(a_hash_including(child_nodes: [{ node: :stub_entity_for_collections, class: ::StubEntityForCollection, cascade: true, foreign_key: :foo_id }]))
+                end
+
+                it 'adds name to child_nodes_collections map, even with redundant foreign_key' do
+                  StubEntityForCollection.parent_node :test_class
+
+                  described_class.child_nodes :stub_entity_for_collections, cascade: true, foreign_key: :test_class_id
+
+                  expect(@subject).to respond_to :stub_entity_for_collections
+                  expect(@subject).to respond_to(:stub_entity_for_collections=)
+
+                  expect(
+                    described_class.nodes_reference.values
+                  ).to include(a_hash_including(child_nodes: [{ node: :stub_entity_for_collections, class: ::StubEntityForCollection, cascade: true, foreign_key: :test_class_id }]))
+
+                  expect(
+                    StubEntityForCollection.nodes_reference.values
+                  ).to include(a_hash_including(child_nodes: [{ node: :stub_entity_for_collections, class: ::StubEntityForCollection, cascade: true, foreign_key: :test_class_id }]))
                 end
 
                 it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return({})
-
                   expect {
-                    described_class.child_nodes :stub_entity_for_collections
+                    described_class.child_nodes :foos, class_name: 'StubEntityForCollection', foreign_key: :foo_id
                   }.to raise_error(
                          Errors::NoParentNodeError,
                          "Child node class must have a foreign_key field set for parent. "\
@@ -70,98 +251,16 @@ module Persisty
                        )
                 end
 
-                it 'sets an instance of DocumentCollection on reader named after child node class' do
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
-
-                  described_class.child_nodes :stub_entity_for_collections
-
-                  collection = @subject.stub_entity_for_collections
-                  expect(collection).to be_an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
-                  expect(@subject.stub_entity_for_collections).to equal(collection)
-                end
-
-                it 'assigns a DocumentCollection on writer, using previous collection' do
-                  entities = [entity_for_collection]
-
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
-
-                  described_class.child_nodes :stub_entity_for_collections
-
-                  previous_collection = @subject.stub_entity_for_collections
-
-                  expect(DocumentCollectionBuilder).to receive(:new).once.with(
-                                                         @subject,
-                                                         @subject.stub_entity_for_collections,
-                                                         StubEntityForCollection
-                                                       ).and_return collection_builder
-
-                  expect(
-                    collection_builder
-                  ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
-
-                  @subject.stub_entity_for_collections = entities
-
-                  expect(@subject.stub_entity_for_collections).not_to equal previous_collection
-                end
-              end
-
-              context "when class_name isn't nil" do
-                it 'adds name to child_nodes_collections map, list and sets accessors' do
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
-
-                  described_class.child_nodes :foos, class_name: StubEntityForCollection
-
-                  expect(described_class.child_nodes_collections_list).to include(:foos)
-                  expect(described_class.child_nodes_collections_map).to include(foos: ::StubEntityForCollection)
-
-                  expect(@subject).to respond_to :foos
-                  expect(@subject).to respond_to(:foos=)
-                end
-
-                it "raises NoParentNodeError when child node class doesn't have parent foreign keys field" do
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return({})
+                it "raises NoParentNodeError when child node class doesn't have parent expected" do
+                  StubEntityForCollection.parent_node :test_class
 
                   expect {
-                    described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
+                    described_class.child_nodes :foos, class_name: 'StubEntityForCollection', foreign_key: :bar_id
                   }.to raise_error(
                          Errors::NoParentNodeError,
                          "Child node class must have a foreign_key field set for parent. "\
                          "Use '.parent_node' method on child class to set correct parent_node relation."
                        )
-                end
-
-                it 'sets an instance of DocumentCollection on reader named after child node class' do
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
-
-                  described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
-
-                  collection = @subject.foos
-                  expect(collection).to be_an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
-                  expect(@subject.foos).to equal(collection)
-                end
-
-                it 'assigns a DocumentCollection on writer, using previous collection' do
-                  entities = [entity_for_collection]
-
-                  allow(StubEntityForCollection).to receive(:parent_nodes_map).and_return(test_class: described_class)
-
-                  described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
-
-                  previous_collection = @subject.foos
-
-                  expect(DocumentCollectionBuilder).to receive(:new).once.with(
-                                                         @subject,
-                                                         @subject.foos,
-                                                         StubEntityForCollection
-                                                       ).and_return collection_builder
-
-                  expect(
-                    collection_builder
-                  ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
-
-                  @subject.foos = entities
-
-                  expect(@subject.foos).not_to equal previous_collection
                 end
               end
             end
@@ -1076,11 +1175,12 @@ module Persisty
 
           describe '#child_nodes_collections_list' do
             it 'returns list of child_nodes collections set on object class' do
-              StubEntity.child_nodes :test_entities
+              StubEntity.parent_node :parent_entity
+              ParentEntity.child_nodes :stub_entities
 
-              subject = StubEntity.new
+              subject = ParentEntity.new
 
-              expect(subject.child_nodes_collections_list).to include :test_entities
+              expect(subject.child_nodes_collections_list).to include :stub_entities
             end
           end
 
@@ -1359,8 +1459,7 @@ module Persisty
 
             before do
               entity.id = BSON::ObjectId.new
-              described_class.parent_node :entity, class_name: entity.class
-              subject.entity = entity
+              subject.stub_entity = entity
             end
 
             context 'when ID field is included' do
@@ -1369,10 +1468,10 @@ module Persisty
 
                 expect(result).to include(
                                     id: id, first_name: 'John',
-                                    dob: Date.parse('1990/01/01'), entity_id: entity.id
+                                    dob: Date.parse('1990/01/01'), stub_entity_id: entity.id
                                   )
 
-                expect(result).not_to have_key(:entity)
+                expect(result).not_to have_key(:stub_entity)
               end
             end
 
@@ -1382,10 +1481,10 @@ module Persisty
 
                 expect(result).to include(
                                     first_name: 'John', dob: Date.parse('1990/01/01'),
-                                    entity_id: entity.id
+                                    stub_entity_id: entity.id
                                   )
 
-                expect(result).not_to have_key(:entity)
+                expect(result).not_to have_key(:stub_entity)
               end
             end
           end
@@ -1405,8 +1504,8 @@ module Persisty
             end
 
             before do
-              entity.id = BSON::ObjectId.new
-              subject.test_scope = entity
+              @id = BSON::ObjectId.new
+              subject.test_scope = ParentEntity.new(id: @id)
             end
 
             it "maps fields names and values, with mongo permitted values and '_id' field" do
@@ -1418,7 +1517,7 @@ module Persisty
                      field7: { foo: Date.parse("01/01/1990"), 'bazz' => 400.0 },
                      field8: id, field9: Date.parse('01/01/1990'),
                      field10: DateTime.new(2017, 11, 21),
-                     field11: Time.new(2017, 11, 21), test_scope_id: entity.id
+                     field11: Time.new(2017, 11, 21), test_scope_id: @id
                    )
             end
 
@@ -1431,7 +1530,7 @@ module Persisty
                      field7: { foo: Date.parse("01/01/1990"), 'bazz' => 400.0 },
                      field8: id, field9: Date.parse('01/01/1990'),
                      field10: DateTime.new(2017, 11, 21),
-                     field11: Time.new(2017, 11, 21), test_scope_id: entity.id
+                     field11: Time.new(2017, 11, 21), test_scope_id: @id
                    )
             end
           end

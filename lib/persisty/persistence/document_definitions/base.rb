@@ -158,11 +158,19 @@ module Persisty
             raise NotImplementedError
           end
 
-          def child_nodes(name, class_name: nil)
+          def child_nodes(name, class_name: nil, cascade: false, foreign_key: nil)
             node_parser = CollectionNodeParser.new
             node_parser.parse_node_identification(name, class_name)
             node, klass = node_parser.node_name, node_parser.node_class
-            parent_node_on(klass)
+
+            parent = (
+              foreign_key.present? ? foreign_key.to_s.gsub(/_id$/, '') : StringModifiers::Underscorer.new.underscore(self.name)
+            ).to_sym
+
+            definition = { node: node.to_sym, class: klass, cascade: cascade, foreign_key: foreign_key }
+            nodes_reference.register_child_nodes(parent, self, definition)
+            klass.nodes_reference.register_child_nodes(parent, self, definition)
+
             register_defined_node(:child_nodes_collection, node, klass)
             collection_class = DocumentCollectionFactory.collection_for(klass)
 

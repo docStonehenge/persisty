@@ -16,7 +16,7 @@ module Persisty
           end
         end
 
-        def_delegators :@nodes, :key?, :has_key?
+        def_delegators :@nodes, :keys, :key?, :has_key?, :values, :value?, :has_value?
 
         def initialize
           @nodes = {}

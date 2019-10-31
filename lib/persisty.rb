@@ -5,6 +5,7 @@ module Persisty
   require 'persisty/extensions/array'
   require 'persisty/extensions/hash'
   require 'persisty/extensions/string'
+  require 'persisty/extensions/symbol'
   require 'persisty/extensions/integer'
   require 'persisty/extensions/boolean'
   require 'persisty/extensions/false_class'
