@@ -128,6 +128,10 @@ module Persisty
           self.class.fields
         end
 
+        def nodes
+          self.class.nodes_reference
+        end
+
         def set_foreign_key_for(klass, foreign_key)
           parent_node = self.class.parent_nodes_map.key(klass)
           raise Errors::NoParentNodeError unless parent_node
@@ -380,23 +384,24 @@ module Persisty
           current_parent = instance_variable_get(:"@#{parent_node_name}")
           return unless different_parent?(new_parent_id, current_parent)
 
-          if (collection = current_parent.child_nodes_collections_map.key(self.class))
-            detach_from_current_parent_collection(current_parent, collection, parent_node_name)
-            change_parent_collection(collection, parent_node_name, new_parent_id)
-          else
-            current_parent.public_send("#{current_parent.child_nodes_map.key(self.class)}=", nil)
+          current_parent.nodes.child_nodes_for(
+            parent_node_name.to_sym, current_parent.class, self.class
+          ).each do |node|
+            current_parent.public_send(node.name).remove(self)
             instance_variable_set(:"@#{parent_node_name}", nil)
+            change_parent_collection node.name, parent_node_name, new_parent_id
           end
+
+          current_parent.nodes.child_node_for(
+            parent_node_name.to_sym, current_parent.class, self.class
+          ).each { |node| current_parent.public_send("#{node.name}=", nil) }
+
+          instance_variable_set(:"@#{parent_node_name}", nil)
         end
 
         def different_parent?(new_parent_id, current_parent)
           return false unless current_parent
           current_parent.id and current_parent.id != new_parent_id
-        end
-
-        def detach_from_current_parent_collection(current_parent, collection, parent_node)
-          current_parent.public_send(collection).remove(self)
-          instance_variable_set(:"@#{parent_node}", nil)
         end
 
         def change_parent_collection(collection, parent_node, new_parent_id)

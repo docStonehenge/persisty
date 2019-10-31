@@ -654,15 +654,12 @@ module Persisty
               context 'when it belongs to a parent as part of a collection' do
                 let(:current_parent_child_nodes) { double(:child_nodes) }
 
-                before do
-                  allow(entity).to receive(:child_nodes_collections_map).and_return(test_classes: ::TestClass)
-                end
-
                 context 'when foreign key is same as current' do
                   it "doesn't clear parent scope field" do
                     entity.id = BSON::ObjectId.new
                     Persistence::UnitOfWork.current.register_clean @subject
                     described_class.parent_node :stub_entity
+                    StubEntity.child_nodes :test_classes
 
                     @subject.stub_entity = entity
 
@@ -682,11 +679,15 @@ module Persisty
                     Persistence::UnitOfWork.current.register_clean @subject
 
                     described_class.parent_node :stub_entity
+                    StubEntity.child_nodes :test_classes
+                    StubEntity.child_nodes :test_entities, class_name: ::TestClass, foreign_key: :stub_entity_id
 
                     @subject.stub_entity = entity
 
                     expect_any_instance_of(Persistence::UnitOfWork).not_to receive(:register_removed)
                     expect(entity).to receive(:test_classes).once.and_return current_parent_child_nodes
+                    expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
+                    expect(entity).to receive(:test_entities).once.and_return current_parent_child_nodes
                     expect(current_parent_child_nodes).to receive(:remove).once.with(@subject)
                     expect(Repositories::Registry).not_to receive(:[]).with(any_args)
 
@@ -705,6 +706,7 @@ module Persisty
                     other_parent = StubEntity.new(id: BSON::ObjectId.new)
                     Persistence::UnitOfWork.current.register_clean @subject
                     described_class.parent_node :stub_entity
+                    StubEntity.child_nodes :test_classes
 
                     @subject.stub_entity = entity
 
@@ -723,7 +725,7 @@ module Persisty
 
                     @subject.stub_entity_id = other_parent.id
 
-                    expect(@subject.instance_variable_get(:@stub_entity)).to eql other_parent
+                    expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
 
                     expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                     expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
@@ -732,10 +734,6 @@ module Persisty
               end
 
               context 'when it belongs to a parent as a single child' do
-                before do
-                  allow(entity).to receive(:child_nodes_collections_map).and_return({})
-                end
-
                 context 'when class_name is nil' do
                   it 'sets parent_node field for its ID and field to lazy load parent' do
                     described_class.parent_node :stub_entity
@@ -808,6 +806,7 @@ module Persisty
                     entity.id = BSON::ObjectId.new
                     Persistence::UnitOfWork.current.register_clean @subject
                     described_class.parent_node :stub_entity
+                    StubEntity.child_node :test_class
 
                     @subject.stub_entity = entity
 
@@ -874,17 +873,29 @@ module Persisty
                     Persistence::UnitOfWork.current.register_clean @subject
 
                     described_class.parent_node :stub_entity
+                    described_class.parent_node :entity, class_name: 'StubEntity'
                     StubEntity.child_node :test_class
+                    StubEntity.child_node :test_entity, class_name: 'TestClass', foreign_key: :stub_entity_id
+                    StubEntity.child_node :another_test_class, class_name: 'TestClass', foreign_key: :entity_id
 
                     expect_any_instance_of(
                       Persistence::UnitOfWork
                     ).to receive(:register_removed).once.with(@subject)
 
                     entity.test_class = @subject
+                    entity.test_entity = @subject
+                    entity.another_test_class = @subject
+
+                    expect(entity.instance_variable_get('@test_class')).not_to be_nil
+                    expect(entity.instance_variable_get('@test_entity')).not_to be_nil
+                    expect(entity.instance_variable_get('@another_test_class')).not_to be_nil
+
                     @subject.stub_entity = entity
                     @subject.stub_entity_id = nil
 
                     expect(entity.instance_variable_get('@test_class')).to be_nil
+                    expect(entity.instance_variable_get('@test_entity')).to be_nil
+                    expect(entity.instance_variable_get('@another_test_class')).not_to be_nil
 
                     expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                     expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
@@ -1192,6 +1203,12 @@ module Persisty
 
           before do
             described_class.parent_node :stub_entity
+          end
+
+          describe '#nodes_reference' do
+            it 'returns nodes_reference object set on class' do
+              expect(subject.nodes).to equal(described_class.nodes_reference)
+            end
           end
 
           describe '#fields' do
