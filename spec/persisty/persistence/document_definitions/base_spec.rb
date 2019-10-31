@@ -4,6 +4,12 @@ module Persisty
       describe Base do
         include_context 'StubEntity'
 
+        after do
+          ObjectSpace.each_object(NodesReference).each do |ref|
+            ref.instance_variable_get(:@nodes).clear
+          end
+        end
+
         let(:uow) { double(:uow) }
         let!(:id) { BSON::ObjectId.new }
         let(:repository) { double(:repository) }
@@ -25,6 +31,10 @@ module Persisty
                 described_class.repository
               }.to raise_error(NotImplementedError)
             end
+          end
+
+          it '.nodes_reference' do
+            expect(described_class.nodes_reference).to be_an_instance_of(NodesReference)
           end
 
           context 'associations' do
@@ -498,6 +508,9 @@ module Persisty
 
                     @subject.stub_entity_id = entity.id
                     expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
                 end
 
@@ -518,6 +531,9 @@ module Persisty
                     @subject.stub_entity_id = nil
 
                     expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
                 end
 
@@ -546,6 +562,9 @@ module Persisty
                     @subject.stub_entity_id = other_parent.id
 
                     expect(@subject.instance_variable_get(:@stub_entity)).to eql other_parent
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
                 end
               end
@@ -557,26 +576,29 @@ module Persisty
 
                 context 'when class_name is nil' do
                   it 'sets parent_node field for its ID and field to lazy load parent' do
-                    described_class.parent_node :string
+                    described_class.parent_node :stub_entity
 
-                    expect(described_class.parent_nodes_list).to include(:string)
-                    expect(described_class.parent_nodes_map).to include(string: String)
+                    expect(described_class.parent_nodes_list).to include(:stub_entity)
+                    expect(described_class.parent_nodes_map).to include(stub_entity: ::StubEntity)
 
-                    expect(described_class.fields_list).to include(:string_id)
-                    expect(described_class.fields).to include(string_id: { type: BSON::ObjectId })
+                    expect(described_class.fields_list).to include(:stub_entity_id)
+                    expect(described_class.fields).to include(stub_entity_id: { type: BSON::ObjectId })
 
-                    expect(@subject).to respond_to :string_id
-                    expect(@subject).to respond_to(:string_id=)
-                    expect(@subject).to respond_to :string
-                    expect(@subject).to respond_to(:string=)
+                    expect(@subject).to respond_to :stub_entity_id
+                    expect(@subject).to respond_to(:stub_entity_id=)
+                    expect(@subject).to respond_to :stub_entity
+                    expect(@subject).to respond_to(:stub_entity=)
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'raises TypeError with custom message on writer when object is a type mismatch' do
-                    described_class.parent_node :string
+                    described_class.parent_node :stub_entity
 
                     expect {
-                      @subject.string = Object.new
-                    }.to raise_error(TypeError, "Object is a type mismatch from defined node 'string'")
+                      @subject.stub_entity = Object.new
+                    }.to raise_error(TypeError, "Object is a type mismatch from defined node 'stub_entity'")
                   end
 
                   it 'performs lazy load on parent_node reader finding by foreign_key on repository' do
@@ -596,6 +618,9 @@ module Persisty
 
                     expect(@subject.stub_entity).to eql entity
                     expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'sets foreign_key id on foreign_key field from object passed as parent_node on writer' do
@@ -612,6 +637,9 @@ module Persisty
                         Persistence::UnitOfWork.current.managed?(@subject)
                       ).to be true
                     }.to change(@subject, :stub_entity_id).from(nil).to(entity.id)
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'clears foreign key field when entity passed on writer is nil' do
@@ -631,6 +659,9 @@ module Persisty
                         Persistence::UnitOfWork.current.managed?(@subject)
                       ).to be true
                     }.to change(@subject, :stub_entity_id).from(entity.id).to(nil)
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'clears parent scope field when foreign key passed is nil' do
@@ -643,6 +674,9 @@ module Persisty
                     @subject.stub_entity_id = nil
 
                     expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it "doesn't clear parent scope field when foreign key passed is same" do
@@ -654,6 +688,9 @@ module Persisty
 
                     @subject.stub_entity_id = entity.id
                     expect(@subject.instance_variable_get(:@stub_entity)).to eql entity
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'clears parent scope field when foreign key passed is different' do
@@ -665,6 +702,9 @@ module Persisty
 
                     @subject.stub_entity_id = BSON::ObjectId.new
                     expect(@subject.instance_variable_get(:@stub_entity)).to be_nil
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'clears child on previous parent when setting foreign_key to nil' do
@@ -683,6 +723,9 @@ module Persisty
                     @subject.stub_entity_id = nil
 
                     expect(entity.instance_variable_get('@test_class')).to be_nil
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'clears child on previous parent without removing its parent when setting foreign_key to other' do
@@ -701,6 +744,9 @@ module Persisty
                     @subject.stub_entity_id = other_parent.id
 
                     expect(entity.instance_variable_get('@test_class')).to be_nil
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
 
                   it 'halts any removing of previous parent on child when trying to set same foreign key' do
@@ -718,15 +764,18 @@ module Persisty
                     @subject.stub_entity_id = entity.id
 
                     expect(entity.instance_variable_get('@test_class')).to equal @subject
+
+                    expect(described_class.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :stub_entity, class: ::StubEntity)
                   end
                 end
 
                 context 'when class_name argument is used' do
                   it 'sets parent_node field for its ID and field to lazy load parent' do
-                    described_class.parent_node :foo, class_name: String
+                    described_class.parent_node :foo, class_name: ::StubEntity
 
                     expect(described_class.parent_nodes_list).to include(:foo)
-                    expect(described_class.parent_nodes_map).to include(foo: String)
+                    expect(described_class.parent_nodes_map).to include(foo: ::StubEntity)
 
                     expect(described_class.fields_list).to include(:foo_id)
                     expect(described_class.fields).to include(foo_id: { type: BSON::ObjectId })
@@ -735,10 +784,13 @@ module Persisty
                     expect(@subject).to respond_to(:foo_id=)
                     expect(@subject).to respond_to :foo
                     expect(@subject).to respond_to(:foo=)
+
+                    expect(described_class.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
                   end
 
                   it 'raises TypeError with custom message on writer when object is a type mismatch' do
-                    described_class.parent_node :foo, class_name: String
+                    described_class.parent_node :foo, class_name: ::StubEntity
 
                     expect {
                       @subject.foo = Object.new
@@ -764,6 +816,9 @@ module Persisty
 
                     expect(@subject.foo).to eql entity
                     expect(@subject.instance_variable_get(:@foo)).to eql entity
+
+                    expect(described_class.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
                   end
 
                   it 'sets foreign_key id on foreign_key field from object passed as parent_node on writer' do
@@ -780,6 +835,9 @@ module Persisty
                         Persistence::UnitOfWork.current.managed?(@subject)
                       ).to be true
                     }.to change(@subject, :foo_id).from(nil).to(entity.id)
+
+                    expect(described_class.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
                   end
 
                   it 'clears foreign key field when entity passed on writer is nil' do
@@ -799,6 +857,9 @@ module Persisty
                         Persistence::UnitOfWork.current.managed?(@subject)
                       ).to be true
                     }.to change(@subject, :foo_id).from(entity.id).to(nil)
+
+                    expect(described_class.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
                   end
 
                   it 'clears parent scope field when foreign key passed is nil' do
@@ -810,6 +871,9 @@ module Persisty
                     @subject.foo_id = nil
 
                     expect(@subject.instance_variable_get(:@foo)).to be_nil
+
+                    expect(described_class.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
                   end
 
                   it "doesn't clear parent scope field when foreign key passed is same" do
@@ -821,6 +885,9 @@ module Persisty
 
                     @subject.foo_id = entity.id
                     expect(@subject.instance_variable_get(:@foo)).to eql entity
+
+                    expect(described_class.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
                   end
 
                   it 'clears parent scope field when foreign key passed is different' do
@@ -832,6 +899,9 @@ module Persisty
 
                     @subject.foo_id = BSON::ObjectId.new
                     expect(@subject.instance_variable_get(:@foo)).to be_nil
+
+                    expect(described_class.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
+                    expect(::StubEntity.nodes_reference).to have_key(node: :foo, class: ::StubEntity)
                   end
                 end
               end

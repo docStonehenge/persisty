@@ -2,6 +2,8 @@ module Persisty
   module Persistence
     module DocumentDefinitions
       class NodesReference
+        extend Forwardable
+
         class InvalidNodeDefinition < StandardError; end
 
         class Node
@@ -13,6 +15,8 @@ module Persisty
                                           )
           end
         end
+
+        def_delegators :@nodes, :key?, :has_key?
 
         def initialize
           @nodes = {}

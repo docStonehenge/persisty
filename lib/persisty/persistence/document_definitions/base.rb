@@ -14,6 +14,7 @@ module Persisty
             extend(ClassMethods)
 
             @fields_reference             = FieldsReference.new
+            @nodes_reference              = NodesReference.new
             @parent_nodes_list            = []
             @parent_nodes_map             = {}
             @child_nodes_list             = []
@@ -28,7 +29,8 @@ module Persisty
             class << self
               attr_reader :parent_nodes_list, :parent_nodes_map,
                           :child_nodes_list, :child_nodes_map,
-                          :child_nodes_collections_list, :child_nodes_collections_map
+                          :child_nodes_collections_list, :child_nodes_collections_map,
+                          :nodes_reference
 
               def fields
                 @fields_reference.fields
@@ -196,6 +198,9 @@ module Persisty
 
           def parent_node(name, class_name: nil)
             node, klass = parse_node_identification(name, class_name)
+            node_definition = { node: node.to_sym, class: klass }
+            nodes_reference.register_parent(node_definition)
+            klass.nodes_reference.register_parent(node_definition)
             register_defined_node(:parent_node, node, klass)
 
             foreign_key_field = (node + '_id').to_sym

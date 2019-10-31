@@ -4,6 +4,13 @@ module Persisty
       describe NodesReference do
         include_context 'StubEntity'
 
+        context 'as a Hash' do
+          it 'delegates has_key? to nodes hash' do
+            expect(subject).to respond_to(:key?)
+            expect(subject).to respond_to(:has_key?)
+          end
+        end
+
         describe 'register_parent node_definition' do
           it 'registers node definition correctly as a parent' do
             subject.register_parent node: :foo, class: ::StubEntity
