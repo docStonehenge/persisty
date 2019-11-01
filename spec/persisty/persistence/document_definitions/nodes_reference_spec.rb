@@ -4,6 +4,10 @@ module Persisty
       describe NodesReference do
         include_context 'StubEntity'
 
+        subject { described_class.new(referable) }
+
+        let(:referable) { ::String }
+
         context 'as a Hash' do
           it 'delegates key related methods to nodes hash' do
             expect(subject).to respond_to(:keys)
@@ -293,6 +297,24 @@ module Persisty
           end
         end
 
+        describe '#find_all_parent_nodes_for klass' do
+          it 'returns all registered parent_nodes for determined class' do
+            subject.register_parent node: :foo, class: ::StubEntity
+            subject.register_parent node: :bar, class: ::StubEntity
+
+            result = subject.find_all_parent_nodes_for(::StubEntity)
+
+            expect(result[0].name).to eql :foo
+            expect(result[1].name).to eql :bar
+          end
+
+          it 'raises Errors::NoParentNodeError when no parent_nodes are found' do
+            expect {
+              subject.find_all_parent_nodes_for(::StubEntity)
+            }.to raise_error(Errors::NoParentNodeError)
+          end
+        end
+
         describe '#child_node_for parent_node, parent_class, child_class' do
           context 'when parent node definition is present' do
             before { subject.register_parent node: :foo, class: ::String }
@@ -375,7 +397,7 @@ module Persisty
           end
         end
 
-        describe '#child_node_list_for parent_class' do
+        describe '#child_node_list parent_class' do
           it 'returns a collection of all child_node on parent' do
             subject.register_parent node: :foo, class: ::String
             subject.register_parent node: :bar, class: ::String
@@ -385,18 +407,17 @@ module Persisty
             subject.register_child_node(:bar, String, { node: :child, class: ::StubEntity, cascade: false, foreign_key: :bar_id })
 
             expect(
-              subject.child_node_list_for(String)
+              subject.child_node_list
             ).to contain_exactly(:stub_entity, :fooza, :child)
           end
 
           it 'returns an empty array when no child is available for parent class' do
             subject.register_parent node: :foo, class: ::ParentEntity
-            expect(subject.child_node_list_for(String)).to be_empty
-            expect(subject.child_node_list_for(ParentEntity)).to be_empty
+            expect(subject.child_node_list).to be_empty
           end
         end
 
-        describe '#child_nodes_list_for parent_class' do
+        describe '#child_nodes_list' do
           it 'returns a collection of all child_nodes on parent' do
             subject.register_parent node: :foo, class: ::String
             subject.register_parent node: :bar, class: ::String
@@ -406,18 +427,30 @@ module Persisty
             subject.register_child_nodes(:bar, String, { node: :children, class: ::StubEntity, cascade: false, foreign_key: nil })
 
             expect(
-              subject.child_nodes_list_for(String)
+              subject.child_nodes_list
             ).to contain_exactly(:stub_entities, :foozas, :children)
           end
 
           it 'returns an empty array when no child is available for parent class' do
             subject.register_parent node: :foo, class: ::ParentEntity
-            expect(subject.child_nodes_list_for(String)).to be_empty
-            expect(subject.child_nodes_list_for(ParentEntity)).to be_empty
+            expect(subject.child_nodes_list).to be_empty
           end
         end
 
-        describe '#cascading_child_node_list_for parent_class' do
+        describe '#parent_nodes_list' do
+          it 'returns a collection of all parent node names without the referable' do
+            subject.register_parent node: :foo, class: ::String
+            subject.register_parent node: :stub_entity, class: ::StubEntity
+
+            expect(subject.parent_nodes_list).to contain_exactly(:stub_entity)
+          end
+
+          it 'returns an empty array when no parent nodes are registered' do
+            expect(subject.parent_nodes_list).to be_empty
+          end
+        end
+
+        describe '#cascading_child_node_list' do
           it 'returns a collection of all child_node on parent which have cascade as true' do
             subject.register_parent node: :foo, class: ::String
 
@@ -425,7 +458,7 @@ module Persisty
             subject.register_child_node(:foo, String, { node: :fooza, class: ::ParentEntity, cascade: false, foreign_key: nil })
 
             expect(
-              subject.cascading_child_node_list_for(String)
+              subject.cascading_child_node_list
             ).to contain_exactly(:stub_entity)
           end
 
@@ -435,7 +468,7 @@ module Persisty
             subject.register_child_node(:foo, String, { node: :stub_entity, class: ::StubEntity, cascade: false, foreign_key: nil })
             subject.register_child_node(:foo, String, { node: :fooza, class: ::ParentEntity, cascade: false, foreign_key: nil })
 
-            expect(subject.cascading_child_node_list_for(String)).to be_empty
+            expect(subject.cascading_child_node_list).to be_empty
           end
 
           it 'returns an empty array when no cascading child is available for parent class' do
@@ -443,15 +476,15 @@ module Persisty
 
             subject.register_child_node(:foo, ParentEntity, { node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: nil })
 
-            expect(subject.cascading_child_node_list_for(String)).to be_empty
+            expect(subject.cascading_child_node_list).to be_empty
           end
 
           it "returns an empty array when parent class isn't registered" do
-            expect(subject.cascading_child_node_list_for(String)).to be_empty
+            expect(subject.cascading_child_node_list).to be_empty
           end
         end
 
-        describe '#cascading_child_nodes_list_for parent_class' do
+        describe '#cascading_child_nodes_list' do
           it 'returns a collection of all child_nodes on parent which have cascade as true' do
             subject.register_parent node: :foo, class: ::String
             subject.register_parent node: :bar, class: ::String
@@ -461,7 +494,7 @@ module Persisty
             subject.register_child_nodes(:bar, String, { node: :parents, class: ::ParentEntity, cascade: nil, foreign_key: :bar_id })
 
             expect(
-              subject.cascading_child_nodes_list_for(String)
+              subject.cascading_child_nodes_list
             ).to contain_exactly(:stub_entities)
           end
 
@@ -471,7 +504,7 @@ module Persisty
             subject.register_child_nodes(:foo, String, { node: :stub_entities, class: ::StubEntity, cascade: false, foreign_key: nil })
             subject.register_child_nodes(:foo, String, { node: :foozas, class: ::ParentEntity, cascade: false, foreign_key: nil })
 
-            expect(subject.cascading_child_nodes_list_for(String)).to be_empty
+            expect(subject.cascading_child_nodes_list).to be_empty
           end
 
           it 'returns an empty array when no cascading child is available for parent class' do
@@ -479,11 +512,11 @@ module Persisty
 
             subject.register_child_nodes(:foo, ParentEntity, { node: :stub_entities, class: ::StubEntity, cascade: true, foreign_key: nil })
 
-            expect(subject.cascading_child_nodes_list_for(String)).to be_empty
+            expect(subject.cascading_child_nodes_list).to be_empty
           end
 
           it "returns an empty array when parent class isn't registered" do
-            expect(subject.cascading_child_nodes_list_for(String)).to be_empty
+            expect(subject.cascading_child_nodes_list).to be_empty
           end
         end
       end

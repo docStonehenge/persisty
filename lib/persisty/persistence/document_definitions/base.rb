@@ -13,17 +13,15 @@ module Persisty
           base.class_eval do
             extend(ClassMethods)
 
-            @fields_reference             = FieldsReference.new
-            @nodes_reference              = NodesReference.new
-            @parent_nodes_list            = []
-            @parent_nodes_map             = {}
+            @fields_reference = FieldsReference.new
+            @nodes_reference  = NodesReference.new(self)
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
             alias_method(:_id=, :id=)
 
             class << self
-              attr_reader :parent_nodes_list, :parent_nodes_map, :nodes_reference
+              attr_reader :nodes_reference
 
               def fields
                 @fields_reference.fields
@@ -126,29 +124,29 @@ module Persisty
         end
 
         def set_foreign_key_for(klass, foreign_key)
-          parent_node = self.class.parent_nodes_map.key(klass)
-          raise Errors::NoParentNodeError unless parent_node
-          public_send("#{parent_node}_id=", foreign_key)
+          nodes.find_all_parent_nodes_for(klass).each do |parent_node|
+            public_send("#{parent_node.name}_id=", foreign_key)
+          end
         end
 
         def parent_nodes_list
-          self.class.parent_nodes_list
+          nodes.parent_nodes_list
         end
 
         def child_node_list
-          nodes.child_node_list_for(self.class)
+          nodes.child_node_list
         end
 
         def cascading_child_node_list
-          nodes.cascading_child_node_list_for(self.class)
+          nodes.cascading_child_node_list
         end
 
         def child_nodes_list
-          nodes.child_nodes_list_for(self.class)
+          nodes.child_nodes_list
         end
 
         def cascading_child_nodes_list
-          nodes.cascading_child_nodes_list_for(self.class)
+          nodes.cascading_child_nodes_list
         end
 
         module ClassMethods
@@ -204,13 +202,9 @@ module Persisty
             node_definition = { node: node.to_sym, class: klass }
             nodes_reference.register_parent(node_definition)
             klass.nodes_reference.register_parent(node_definition)
-            instance_variable_get("@parent_nodes_list").push(node.to_sym)
-            instance_variable_get("@parent_nodes_map")[node.to_sym] = klass
-
             foreign_key_field = (node + '_id').to_sym
             register_defined_field foreign_key_field, BSON::ObjectId
             attr_reader foreign_key_field
-
             define_parent_node_handling_methods(node, klass, foreign_key_field)
           end
 

@@ -2,8 +2,6 @@ shared_context 'EntityWithAllValues' do
   class ::EntityWithAllValues
     include Persisty::Persistence::DocumentDefinitions::Base
 
-    parent_node :test_scope, class_name: ::ParentEntity
-
     define_field :field1, type: String
     define_field :field2, type: Integer
     define_field :field3, type: Float

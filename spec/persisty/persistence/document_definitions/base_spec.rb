@@ -722,9 +722,6 @@ module Persisty
                   it 'sets parent_node field for its ID and field to lazy load parent' do
                     described_class.parent_node :stub_entity
 
-                    expect(described_class.parent_nodes_list).to include(:stub_entity)
-                    expect(described_class.parent_nodes_map).to include(stub_entity: ::StubEntity)
-
                     expect(described_class.fields_list).to include(:stub_entity_id)
                     expect(described_class.fields).to include(stub_entity_id: { type: BSON::ObjectId })
 
@@ -930,9 +927,6 @@ module Persisty
                 context 'when class_name argument is used' do
                   it 'sets parent_node field for its ID and field to lazy load parent' do
                     described_class.parent_node :foo, class_name: ::StubEntity
-
-                    expect(described_class.parent_nodes_list).to include(:foo)
-                    expect(described_class.parent_nodes_map).to include(foo: ::StubEntity)
 
                     expect(described_class.fields_list).to include(:foo_id)
                     expect(described_class.fields).to include(foo_id: { type: BSON::ObjectId })
@@ -1583,6 +1577,7 @@ module Persisty
 
             before do
               @id = BSON::ObjectId.new
+              EntityWithAllValues.parent_node :test_scope, class_name: ::ParentEntity
               subject.test_scope = ParentEntity.new(id: @id)
             end
 
