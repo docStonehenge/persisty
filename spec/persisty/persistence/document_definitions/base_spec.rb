@@ -1173,6 +1173,9 @@ module Persisty
           class ::TestEntity
             include Base
 
+            def self.repository
+            end
+
             define_field :first_name, type: String
             define_field :dob,        type: Date
           end
@@ -1224,7 +1227,7 @@ module Persisty
           end
 
           describe '#child_node_list' do
-            it 'returns list of cascading child_node set on object class' do
+            it 'returns list of child_node set on object class' do
               StubEntity.child_node :test_entity, cascade: false
               StubEntity.child_node :fooza, cascade: true, class_name: 'TestEntity', foreign_key: :stub_entity_id
 
@@ -1234,14 +1237,17 @@ module Persisty
             end
           end
 
-          describe '#cascading_child_node_list' do
-            it 'returns list of cascading child_node set on object class' do
+          describe '#cascading_child_node_objects' do
+            it 'returns list of cascading child_objects set on object class' do
               StubEntity.child_node :test_entity
               StubEntity.child_node :fooza, cascade: true, class_name: 'TestEntity', foreign_key: :stub_entity_id
 
+              test_entities = [TestEntity.new, TestEntity.new]
               subject = StubEntity.new
+              subject.test_entity = test_entities[0]
+              subject.fooza = test_entities[1]
 
-              expect(subject.cascading_child_node_list).to contain_exactly :fooza
+              expect(subject.cascading_child_node_objects).to contain_exactly(test_entities[1])
             end
           end
 
@@ -1255,14 +1261,20 @@ module Persisty
             end
           end
 
-          describe '#cascading_child_nodes_list' do
+          describe '#cascading_child_nodes_objects' do
+            let(:test_entity_collection) { double }
+
             it 'returns list of cascading child_nodes collections set on object class' do
               StubEntity.child_nodes :test_entities, cascade: true
               StubEntity.child_nodes :tests, class_name: 'TestEntity', cascade: false, foreign_key: :stub_entity_id
 
               subject = StubEntity.new
 
-              expect(subject.cascading_child_nodes_list).to contain_exactly :test_entities
+              expect(subject).to receive(:test_entities).once.and_return(test_entity_collection)
+
+              expect(
+                subject.cascading_child_nodes_objects
+              ).to contain_exactly test_entity_collection
             end
           end
 

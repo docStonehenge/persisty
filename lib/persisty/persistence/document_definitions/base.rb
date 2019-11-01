@@ -133,20 +133,12 @@ module Persisty
           nodes.parent_nodes_list
         end
 
-        def child_node_list
-          nodes.child_node_list
-        end
+        %i[child_node child_nodes].each do |type|
+          define_method("#{type}_list") { nodes.public_send(__callee__) }
 
-        def cascading_child_node_list
-          nodes.cascading_child_node_list
-        end
-
-        def child_nodes_list
-          nodes.child_nodes_list
-        end
-
-        def cascading_child_nodes_list
-          nodes.cascading_child_nodes_list
+          define_method("cascading_#{type}_objects") do
+            nodes.public_send("cascading_#{type}_list").map { |node| public_send(node) }
+          end
         end
 
         module ClassMethods
