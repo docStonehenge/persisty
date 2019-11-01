@@ -50,6 +50,16 @@ module Persisty
               node[:class] == child_class
             end.map { |node| Node.new(node) }
           end
+
+          define_method("cascading_#{child_node_type}_for") do |parent_class|
+            if (parent = nodes.find(-> { [] }) { |key, _| key[:class] == parent_class }).empty?
+              parent
+            else
+              parent.last[child_node_type].reject do |node|
+                !node[:cascade]
+              end.map { |node| node[:node] }
+            end
+          end
         end
 
         def parent_node_for(node_name, klass)
