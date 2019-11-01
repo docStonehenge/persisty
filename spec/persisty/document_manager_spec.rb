@@ -158,8 +158,8 @@ module Persisty
       context "when entity hasn't an ID" do
         before do
           allow(entity).to receive(:id).and_return nil
+          allow(entity).to receive(:child_node_list).and_return []
           allow(entity).to receive(:child_nodes_list).and_return []
-          allow(entity).to receive(:child_nodes_collections_list).and_return []
         end
 
         it 'sets entity ID and registers on Persistence::UnitOfWork as new' do
@@ -172,8 +172,8 @@ module Persisty
 
       context 'when entity already has an ID' do
         it "doesn't replace entity's ID and just calls Persistence::UnitOfWork registration" do
+          allow(entity).to receive(:child_node_list).and_return []
           allow(entity).to receive(:child_nodes_list).and_return []
-          allow(entity).to receive(:child_nodes_collections_list).and_return []
           expect(id_gen).not_to receive(:generate)
           expect(entity).not_to receive(:id=).with(any_args)
           expect(unit_of_work).to receive(:register_new).once.with(entity)
@@ -188,8 +188,8 @@ module Persisty
         before do
           allow(entity).to receive(:id).and_return nil
           allow(entity).to receive(:class).and_return Object
-          expect(entity).to receive(:child_nodes_list).and_return []
-          expect(entity).to receive(:child_nodes_collections_list).and_return [:child_ones, :child_twos]
+          expect(entity).to receive(:child_node_list).and_return []
+          expect(entity).to receive(:child_nodes_list).and_return [:child_ones, :child_twos]
           expect(id_gen).to receive(:generate).once.and_return 123
           expect(entity).to receive(:id=).once.with(123)
         end
@@ -241,8 +241,8 @@ module Persisty
         before do
           allow(entity).to receive(:id).and_return nil
           allow(entity).to receive(:class).and_return Object
-          expect(entity).to receive(:child_nodes_list).and_return [:child_one, :child_two]
-          allow(entity).to receive(:child_nodes_collections_list).and_return []
+          expect(entity).to receive(:child_node_list).and_return [:child_one, :child_two]
+          allow(entity).to receive(:child_nodes_list).and_return []
           expect(id_gen).to receive(:generate).once.and_return 123
           expect(entity).to receive(:id=).once.with(123)
         end
@@ -303,8 +303,8 @@ module Persisty
 
     describe '#remove entity' do
       it 'calls removed registration of entity on Persistence::UnitOfWork' do
+        expect(entity).to receive(:child_node_list).and_return []
         expect(entity).to receive(:child_nodes_list).and_return []
-        expect(entity).to receive(:child_nodes_collections_list).and_return []
         expect(unit_of_work).to receive(:register_removed).once.with(entity)
         subject.remove entity
       end
@@ -314,8 +314,8 @@ module Persisty
         let(:child_two) { double(:child_two) }
 
         before do
-          expect(entity).to receive(:child_nodes_list).and_return []
-          expect(entity).to receive(:child_nodes_collections_list).and_return [:child_ones, :child_twos]
+          expect(entity).to receive(:child_node_list).and_return []
+          expect(entity).to receive(:child_nodes_list).and_return [:child_ones, :child_twos]
         end
 
         it 'registers parent and all childs from each collection to be removed' do
@@ -335,8 +335,8 @@ module Persisty
         let(:child_two) { double(:child_two) }
 
         before do
-          expect(entity).to receive(:child_nodes_list).and_return [:child_one, :child_two]
-          expect(entity).to receive(:child_nodes_collections_list).and_return []
+          expect(entity).to receive(:child_node_list).and_return [:child_one, :child_two]
+          expect(entity).to receive(:child_nodes_list).and_return []
         end
 
         it 'registers all childs and parent to be removed' do

@@ -20,9 +20,9 @@ module Persisty
     def persist(entity)
       assign_new_id_to entity
 
-      map_single_child_nodes_on(entity).each(&persist_child_operation_block(entity))
+      map_single_child_node_on(entity).each(&persist_child_operation_block(entity))
 
-      operate_on_child_nodes_collections_from(
+      operate_on_child_nodes_from(
         entity, &persist_child_operation_block(entity)
       )
 
@@ -36,8 +36,8 @@ module Persisty
 
       removal_operation.call(entity)
 
-      map_single_child_nodes_on(entity).each(&removal_operation)
-      operate_on_child_nodes_collections_from(entity, &removal_operation)
+      map_single_child_node_on(entity).each(&removal_operation)
+      operate_on_child_nodes_from(entity, &removal_operation)
     end
 
     def commit
@@ -68,14 +68,14 @@ module Persisty
       entity.id = @id_generator.generate unless entity.id.present?
     end
 
-    def map_single_child_nodes_on(entity)
-      entity.child_nodes_list.map do |child_node|
+    def map_single_child_node_on(entity)
+      entity.child_node_list.map do |child_node|
         entity.public_send(child_node)
       end.compact
     end
 
-    def operate_on_child_nodes_collections_from(entity, &block)
-      entity.child_nodes_collections_list.map do |child_node_collection|
+    def operate_on_child_nodes_from(entity, &block)
+      entity.child_nodes_list.map do |child_node_collection|
         entity.public_send(child_node_collection)
       end.each { |child_node_collection| child_node_collection.each(&block) }
     end

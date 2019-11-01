@@ -17,20 +17,13 @@ module Persisty
             @nodes_reference              = NodesReference.new
             @parent_nodes_list            = []
             @parent_nodes_map             = {}
-            @child_nodes_list             = []
-            @child_nodes_map              = {}
-            @child_nodes_collections_list = []
-            @child_nodes_collections_map  = {}
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
             alias_method(:_id=, :id=)
 
             class << self
-              attr_reader :parent_nodes_list, :parent_nodes_map,
-                          :child_nodes_list, :child_nodes_map,
-                          :child_nodes_collections_list, :child_nodes_collections_map,
-                          :nodes_reference
+              attr_reader :parent_nodes_list, :parent_nodes_map, :nodes_reference
 
               def fields
                 @fields_reference.fields
@@ -142,16 +135,20 @@ module Persisty
           self.class.parent_nodes_list
         end
 
+        def child_node_list
+          nodes.child_node_list_for(self.class)
+        end
+
+        def cascading_child_node_list
+          nodes.cascading_child_node_list_for(self.class)
+        end
+
         def child_nodes_list
-          self.class.child_nodes_list
+          nodes.child_nodes_list_for(self.class)
         end
 
-        def child_nodes_collections_list
-          self.class.child_nodes_collections_list
-        end
-
-        def child_nodes_map
-          self.class.child_nodes_map
+        def cascading_child_nodes_list
+          nodes.cascading_child_nodes_list_for(self.class)
         end
 
         module ClassMethods
@@ -166,16 +163,7 @@ module Persisty
             node_parser = CollectionNodeParser.new
             node_parser.parse_node_identification(name, class_name)
             node, klass = node_parser.node_name, node_parser.node_class
-
-            parent = (
-              foreign_key.present? ? foreign_key.to_s.gsub(/_id$/, '') : self.name.underscore
-            ).to_sym
-
-            definition = { node: node.to_sym, class: klass, cascade: cascade, foreign_key: foreign_key }
-            nodes_reference.register_child_nodes(parent, self, definition)
-            klass.nodes_reference.register_child_nodes(parent, self, definition)
-
-            register_defined_node(:child_nodes_collection, node, klass)
+            register_child_node(__callee__, node.to_sym, klass, cascade, foreign_key)
             collection_class = DocumentCollectionFactory.collection_for(klass)
 
             instance_eval do
@@ -199,17 +187,11 @@ module Persisty
 
           def child_node(name, class_name: nil, cascade: false, foreign_key: nil)
             node, klass = parse_node_identification(name, class_name)
+            register_child_node(__callee__, node.to_sym, klass, cascade, foreign_key)
 
-            parent = (
-              foreign_key.present? ? foreign_key.to_s.gsub(/_id$/, '') : self.name.underscore
-            ).to_sym
-
-            definition = { node: node.to_sym, class: klass, cascade: cascade, foreign_key: foreign_key }
-            nodes_reference.register_child_node(parent, self, definition)
-            klass.nodes_reference.register_child_node(parent, self, definition)
-
-            register_defined_node(:child_node, node, klass)
-            child_set_parent_node = parent_node_on(klass, parent)
+            child_set_parent_node = parent_node_on(
+              klass, determine_parent_name_by_foreign_key(foreign_key)
+            )
 
             instance_eval do
               define_single_child_node_reader(node, klass, child_set_parent_node)
@@ -222,7 +204,8 @@ module Persisty
             node_definition = { node: node.to_sym, class: klass }
             nodes_reference.register_parent(node_definition)
             klass.nodes_reference.register_parent(node_definition)
-            register_defined_node(:parent_node, node, klass)
+            instance_variable_get("@parent_nodes_list").push(node.to_sym)
+            instance_variable_get("@parent_nodes_map")[node.to_sym] = klass
 
             foreign_key_field = (node + '_id').to_sym
             register_defined_field foreign_key_field, BSON::ObjectId
@@ -281,9 +264,17 @@ module Persisty
             @fields_reference.register(name, type)
           end
 
-          def register_defined_node(node_type, name, node_class)
-            instance_variable_get("@#{node_type}s_list").push(name.to_sym)
-            instance_variable_get("@#{node_type}s_map")[name.to_sym] = node_class
+          def register_child_node(type, node, node_class, cascade, foreign_key)
+            parent     = determine_parent_name_by_foreign_key(foreign_key)
+            definition = { node: node, class: node_class, cascade: cascade, foreign_key: foreign_key }
+            nodes_reference.public_send("register_#{type}", parent, self, definition)
+            node_class.nodes_reference.public_send("register_#{type}", parent, self, definition)
+          end
+
+          def determine_parent_name_by_foreign_key(foreign_key)
+            return name.underscore.to_sym unless foreign_key
+
+            foreign_key.to_s.gsub(/_id$/, '').to_sym
           end
 
           def define_writer_method_for(attribute, type) # :nodoc:
@@ -420,7 +411,7 @@ module Persisty
 
         def initialize_nodes_based_on(attributes)
           attributes.select do |attr|
-            parent_nodes_list.include?(attr) or child_nodes_list.include?(attr)
+            parent_nodes_list.include?(attr) or child_node_list.include?(attr)
           end.each { |node, value| public_send("#{node}=", value) }
         end
 

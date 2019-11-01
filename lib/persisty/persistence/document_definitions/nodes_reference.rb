@@ -51,14 +51,16 @@ module Persisty
             end.map { |node| Node.new(node) }
           end
 
-          define_method("cascading_#{child_node_type}_for") do |parent_class|
-            if (parent = nodes.find(-> { [] }) { |key, _| key[:class] == parent_class }).empty?
-              parent
-            else
-              parent.last[child_node_type].reject do |node|
-                !node[:cascade]
-              end.map { |node| node[:node] }
+          define_method("#{child_node_type}_list_for") do |parent_class|
+            find_child_nodes_for(parent_class, child_node_type).map do |node|
+              node[:node]
             end
+          end
+
+          define_method("cascading_#{child_node_type}_list_for") do |parent_class|
+            find_child_nodes_for(
+              parent_class, child_node_type
+            ).reject{ |node| !node[:cascade] }.map { |node| node[:node] }
           end
         end
 
@@ -105,6 +107,14 @@ module Persisty
           return if nodes.dig(parent_node, child_node_type).none? { |node| node[:node] == definition[:node] }
 
           raise InvalidNodeDefinition, "#{child_node_type} definition already registered"
+        end
+
+        def find_child_nodes_for(parent_class, child_node_type)
+          if (parents = nodes.select { |key, _| key[:class] == parent_class }).empty?
+            parents
+          else
+            parents.map { |_, value| value[child_node_type] }.flatten
+          end
         end
       end
     end

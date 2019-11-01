@@ -52,9 +52,6 @@ module Persisty
 
                     described_class.child_nodes :stub_entity_for_collections, cascade: true
 
-                    expect(described_class.child_nodes_collections_list).to include(:stub_entity_for_collections)
-                    expect(described_class.child_nodes_collections_map).to include(stub_entity_for_collections: ::StubEntityForCollection)
-
                     expect(@subject).to respond_to :stub_entity_for_collections
                     expect(@subject).to respond_to(:stub_entity_for_collections=)
 
@@ -129,9 +126,6 @@ module Persisty
                     StubEntityForCollection.parent_node :test_class
 
                     described_class.child_nodes :foos, class_name: StubEntityForCollection
-
-                    expect(described_class.child_nodes_collections_list).to include(:foos)
-                    expect(described_class.child_nodes_collections_map).to include(foos: ::StubEntityForCollection)
 
                     expect(@subject).to respond_to :foos
                     expect(@subject).to respond_to(:foos=)
@@ -209,9 +203,6 @@ module Persisty
 
                   described_class.child_nodes :stub_entity_for_collections, cascade: true, foreign_key: :foo_id
 
-                  expect(described_class.child_nodes_collections_list).to include(:stub_entity_for_collections)
-                  expect(described_class.child_nodes_collections_map).to include(stub_entity_for_collections: ::StubEntityForCollection)
-
                   expect(@subject).to respond_to :stub_entity_for_collections
                   expect(@subject).to respond_to(:stub_entity_for_collections=)
 
@@ -277,8 +268,6 @@ module Persisty
 
                     described_class.child_node :stub_entity, cascade: true
 
-                    expect(described_class.child_nodes_list).to include(:stub_entity)
-                    expect(described_class.child_nodes_map).to include(stub_entity: ::StubEntity)
                     expect(@subject).to respond_to :stub_entity
                     expect(@subject).to respond_to(:stub_entity=)
 
@@ -451,8 +440,6 @@ module Persisty
 
                     subject = described_class.new(id: BSON::ObjectId.new)
 
-                    expect(described_class.child_nodes_list).to include(:foo)
-                    expect(described_class.child_nodes_map).to include(foo: ::StubEntity)
                     expect(subject).to respond_to :foo
                     expect(subject).to respond_to(:foo=)
                   end
@@ -588,9 +575,6 @@ module Persisty
                   StubEntity.parent_node :foo, class_name: ::TestClass
 
                   described_class.child_node :stub_entity, cascade: true, foreign_key: :foo_id
-
-                  expect(described_class.child_nodes_list).to include(:stub_entity)
-                  expect(described_class.child_nodes_map).to include(stub_entity: ::StubEntity)
 
                   expect(@subject).to respond_to :stub_entity
                   expect(@subject).to respond_to(:stub_entity=)
@@ -1245,33 +1229,46 @@ module Persisty
             end
           end
 
-          describe '#child_nodes_list' do
-            it 'returns list of child_nodes set on object class' do
-              StubEntity.child_node :test_entity
+          describe '#child_node_list' do
+            it 'returns list of cascading child_node set on object class' do
+              StubEntity.child_node :test_entity, cascade: false
+              StubEntity.child_node :fooza, cascade: true, class_name: 'TestEntity', foreign_key: :stub_entity_id
 
               subject = StubEntity.new
 
-              expect(subject.child_nodes_list).to include :test_entity
+              expect(subject.child_node_list).to contain_exactly :test_entity, :fooza
             end
           end
 
-          describe '#child_nodes_collections_list' do
+          describe '#cascading_child_node_list' do
+            it 'returns list of cascading child_node set on object class' do
+              StubEntity.child_node :test_entity
+              StubEntity.child_node :fooza, cascade: true, class_name: 'TestEntity', foreign_key: :stub_entity_id
+
+              subject = StubEntity.new
+
+              expect(subject.cascading_child_node_list).to contain_exactly :fooza
+            end
+          end
+
+          describe '#child_nodes_list' do
             it 'returns list of child_nodes collections set on object class' do
               StubEntity.child_nodes :test_entities
 
               subject = StubEntity.new
 
-              expect(subject.child_nodes_collections_list).to include :test_entities
+              expect(subject.child_nodes_list).to contain_exactly :test_entities
             end
           end
 
-          describe '#child_nodes_map' do
-            it 'returns map of child_nodes on object class' do
-              StubEntity.child_node :test_entity
+          describe '#cascading_child_nodes_list' do
+            it 'returns list of cascading child_nodes collections set on object class' do
+              StubEntity.child_nodes :test_entities, cascade: true
+              StubEntity.child_nodes :tests, class_name: 'TestEntity', cascade: false, foreign_key: :stub_entity_id
 
               subject = StubEntity.new
 
-              expect(subject.child_nodes_map).to include(test_entity: ::TestEntity)
+              expect(subject.cascading_child_nodes_list).to contain_exactly :test_entities
             end
           end
 
