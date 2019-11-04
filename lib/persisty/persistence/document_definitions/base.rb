@@ -163,7 +163,7 @@ module Persisty
                 collection = instance_variable_get("@#{node}")
                 return collection if collection
 
-                instance_variable_set("@#{node}", collection_class.new(self, klass))
+                instance_variable_set("@#{node}", collection_class.new(self, klass, foreign_key))
               end
 
               define_method("#{node}=") do |collection|
@@ -171,7 +171,7 @@ module Persisty
                   "@#{node}",
                   DocumentCollectionBuilder.new(
                     self, public_send("#{node}"), klass
-                  ).build_with(collection)
+                  ).build_with(collection, foreign_key)
                 )
               end
             end

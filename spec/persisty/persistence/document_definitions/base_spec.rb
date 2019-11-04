@@ -113,7 +113,7 @@ module Persisty
 
                     expect(
                       collection_builder
-                    ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+                    ).to receive(:build_with).once.with(entities, nil).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
 
                     @subject.stub_entity_for_collections = entities
 
@@ -188,7 +188,7 @@ module Persisty
 
                     expect(
                       collection_builder
-                    ).to receive(:build_with).once.with(entities).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
+                    ).to receive(:build_with).once.with(entities, nil).and_return an_instance_of(Persisty::Associations::StubEntityForCollectionDocumentCollection)
 
                     @subject.foos = entities
 

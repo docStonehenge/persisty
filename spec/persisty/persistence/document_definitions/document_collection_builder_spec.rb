@@ -13,7 +13,7 @@ module Persisty
 
         subject { described_class.new(parent, proxy, ::StubEntity) }
 
-        describe '#build_with entities' do
+        describe '#build_with entities, foreign_key' do
           before do
             DocumentCollectionFactory.collection_for(::StubEntity)
           end
@@ -27,18 +27,18 @@ module Persisty
 
             it 'raises ArgumentError' do
               expect {
-                subject.build_with String.new
+                subject.build_with String.new, nil
               }.to raise_error(ArgumentError)
 
               expect {
-                subject.build_with 123
+                subject.build_with 123, :foo_id
               }.to raise_error(ArgumentError)
 
               expect {
                 subject.build_with(
                   Associations::StubEntityForCollectionDocumentCollection.new(
                     double, ::StubEntityForCollection, []
-                  )
+                  ), nil
                 )
               }.to raise_error(ArgumentError)
             end
@@ -58,7 +58,7 @@ module Persisty
                 entities << nil
 
                 expect {
-                  subject.build_with entities
+                  subject.build_with entities, nil
                 }.to raise_error(ArgumentError)
               end
             end
@@ -70,7 +70,7 @@ module Persisty
                 entities << 123
 
                 expect {
-                  subject.build_with entities
+                  subject.build_with entities, :foo_id
                 }.to raise_error(ArgumentError)
               end
             end
@@ -95,7 +95,7 @@ module Persisty
               let(:proxy) { [] }
 
               it 'returns a DocumentCollection filled with entities from array' do
-                result = subject.build_with entities
+                result = subject.build_with entities, nil
 
                 expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
                 expect(result.all).to include(entity1, entity2)
@@ -112,7 +112,7 @@ module Persisty
                   expect(uow).not_to receive(:register_removed).with(entity1)
                   expect(uow).to receive(:register_removed).once.with(proxy[1])
 
-                  result = subject.build_with entities
+                  result = subject.build_with entities, 'foo_id'
 
                   expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
 
@@ -130,7 +130,7 @@ module Persisty
 
                   expect(uow).to receive(:register_removed).once.with(proxy[0])
 
-                  result = subject.build_with entities
+                  result = subject.build_with entities, :foo_id
 
                   expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
 
@@ -149,7 +149,7 @@ module Persisty
               let(:proxy) { [] }
 
               it 'returns a DocumentCollection filled with a empty array' do
-                result = subject.build_with entities
+                result = subject.build_with entities, nil
 
                 expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
                 expect(result.all).to be_empty
@@ -165,7 +165,7 @@ module Persisty
                 expect(uow).to receive(:register_removed).once.with(entity1)
                 expect(uow).to receive(:register_removed).once.with(proxy[1])
 
-                result = subject.build_with entities
+                result = subject.build_with entities, :foo_id
 
                 expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
                 expect(result.all).to be_empty
@@ -174,13 +174,17 @@ module Persisty
           end
 
           context 'when collection is a DocumentCollection for node class' do
-            let(:entities) { Associations::StubEntityDocumentCollection.new(parent, ::StubEntity, [entity1, entity2]) }
+            let(:entities) do
+              Associations::StubEntityDocumentCollection.new(
+                parent, ::StubEntity, nil, [entity1, entity2]
+              )
+            end
 
             context "when parent entity doesn't have a filled proxy yet" do
               let(:proxy) { [] }
 
               it 'returns a DocumentCollection filled with entities from array' do
-                result = subject.build_with entities
+                result = subject.build_with entities, :foo_id
 
                 expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
                 expect(result).not_to equal entities
@@ -198,7 +202,7 @@ module Persisty
                   expect(uow).not_to receive(:register_removed).with(entity1)
                   expect(uow).to receive(:register_removed).once.with(proxy[1])
 
-                  result = subject.build_with entities
+                  result = subject.build_with entities, 'foo_id'
 
                   expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
 
@@ -216,7 +220,7 @@ module Persisty
 
                   expect(uow).to receive(:register_removed).once.with(proxy[0])
 
-                  result = subject.build_with entities
+                  result = subject.build_with entities, nil
 
                   expect(result).to be_an_instance_of(Associations::StubEntityDocumentCollection)
 

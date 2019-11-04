@@ -8,7 +8,7 @@ module Persisty
           @node_class          = node_class
         end
 
-        def build_with(entities)
+        def build_with(entities, foreign_key)
           with_valid_collection_object(entities) do |valid_collection|
             @document_collection.each do |entity|
               next if valid_collection.include?(entity)
@@ -17,7 +17,7 @@ module Persisty
               Persistence::UnitOfWork.current.register_removed(entity)
             end
 
-            document_collection_object_for valid_collection
+            document_collection_object_for valid_collection, foreign_key
           end
         end
 
@@ -39,8 +39,10 @@ module Persisty
           end
         end
 
-        def document_collection_object_for(entities)
-          document_collection_class.new(@parent, @node_class, entities)
+        def document_collection_object_for(entities, foreign_key)
+          document_collection_class.new(
+            @parent, @node_class, foreign_key, entities
+          )
         end
 
         def document_collection_class

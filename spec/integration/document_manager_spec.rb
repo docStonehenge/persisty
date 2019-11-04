@@ -201,6 +201,30 @@ describe 'DocumentManager integration tests', db_integration: true do
         }.to change(child_one, :id)
       end
     end
+
+    context 'handling collection of childs' do
+      include_context 'parent node and childs environment'
+
+      it 'persists all objects from within collection when cascading' do
+        Parent.child_nodes :child_twos, cascade: true, foreign_key: :dad_id
+
+        child_twos = [ChildTwo.new, ChildTwo.new]
+
+        parent.child_twos << child_twos[0]
+
+        parent.child_twos << child_twos[1]
+
+        dm.persist parent
+
+        expect(child_twos[0].id).not_to be_nil
+        expect(child_twos[1].id).not_to be_nil
+        expect(uow.new_entities).to include parent, child_twos[0], child_twos[1]
+        expect(child_twos[0].dad_id).not_to be_nil
+        expect(child_twos[1].dad_id).not_to be_nil
+
+        dm.commit
+      end
+    end
   end
 
   context 'removing entities' do

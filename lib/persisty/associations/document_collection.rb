@@ -1,9 +1,10 @@
 module Persisty
   module Associations
     class DocumentCollection
-      def initialize(parent, document_class, entities = nil)
+      def initialize(parent, document_class, foreign_key, entities = nil)
         @parent         = parent
         @document_class = document_class
+        @foreign_key    = foreign_key
         @collection     = entities
       end
 
@@ -100,7 +101,7 @@ module Persisty
 
       def foreign_key
         (
-          StringModifiers::Underscorer.new.underscore("#{@parent.class}") + '_id'
+          @foreign_key.present? ? @foreign_key : "#{@parent.class}".underscore + '_id'
         ).to_sym
       end
 
