@@ -137,7 +137,9 @@ module Persisty
           define_method("#{type}_list") { nodes.public_send(__callee__) }
 
           define_method("cascading_#{type}_objects") do
-            nodes.public_send("cascading_#{type}_list").map { |node| public_send(node) }
+            nodes.public_send(
+              "cascading_#{type}_list"
+            ).map { |node| public_send(node) }.compact
           end
         end
 

@@ -50,8 +50,8 @@ shared_context 'parent node and childs environment' do
   end
 
   class ::Parent
-    child_node :first_child, class_name: 'ChildOne', foreign_key: :parent_id
-    child_node :child_two, foreign_key: :dad_id
+    child_node :first_child, class_name: 'ChildOne', foreign_key: :parent_id, cascade: true
+    child_node :child_two, foreign_key: :dad_id, cascade: true
   end
 
   let(:child_one) { ::ChildOne.new }
