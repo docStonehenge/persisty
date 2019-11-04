@@ -160,10 +160,10 @@ module Persisty
 
             instance_eval do
               define_method("#{node}") do
-                collection = instance_variable_get("@#{node}")
-                return collection if collection
-
-                instance_variable_set("@#{node}", collection_class.new(self, klass, foreign_key))
+                instance_variable_get("@#{node}") ||
+                  instance_variable_set(
+                    "@#{node}", collection_class.new(self, klass, foreign_key)
+                  )
               end
 
               define_method("#{node}=") do |collection|
