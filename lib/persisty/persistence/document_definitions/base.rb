@@ -155,7 +155,7 @@ module Persisty
             node_parser = CollectionNodeParser.new
             node_parser.parse_node_identification(name, class_name)
             node, klass = node_parser.node_name, node_parser.node_class
-            register_child_node(__callee__, node.to_sym, klass, cascade, foreign_key)
+            register_child_node(node.to_sym, klass, cascade, foreign_key)
             collection_class = DocumentCollectionFactory.collection_for(klass)
 
             instance_eval do
@@ -179,7 +179,7 @@ module Persisty
 
           def child_node(name, class_name: nil, cascade: false, foreign_key: nil)
             node, klass = parse_node_identification(name, class_name)
-            register_child_node(__callee__, node.to_sym, klass, cascade, foreign_key)
+            register_child_node(node.to_sym, klass, cascade, foreign_key)
 
             child_set_parent_node = parent_node_on(
               klass, determine_parent_name_by_foreign_key(foreign_key)
@@ -252,7 +252,8 @@ module Persisty
             @fields_reference.register(name, type)
           end
 
-          def register_child_node(type, node, node_class, cascade, foreign_key)
+          def register_child_node(node, node_class, cascade, foreign_key)
+            type       = caller_locations.first.label.to_sym
             parent     = determine_parent_name_by_foreign_key(foreign_key)
             definition = { node: node, class: node_class, cascade: cascade, foreign_key: foreign_key }
             nodes_reference.public_send("register_#{type}", parent, self, definition)
