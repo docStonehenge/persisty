@@ -54,24 +54,12 @@ describe 'DocumentManager integration tests', db_integration: true do
 
       expect {
         entity.id = BSON::ObjectId.new
-      }.to raise_error(ArgumentError, 'Cannot change ID from an entity that is still on current UnitOfWork')
+      }.to raise_error(ArgumentError, 'Cannot change ID when a previous value is already assigned.')
     end
 
     it 'correctly inserts entity into database' do
       dm.persist entity
       expect(dm.commit).to be true
-    end
-
-    it 'changes ID from detached entity, without marking on UnitOfWork' do
-      dm.persist entity
-      dm.commit
-
-      dm.detach entity
-      new_id = BSON::ObjectId.new
-
-      entity._id = new_id
-
-      expect(entity.id).to eql new_id
     end
 
     context 'handling single child nodes' do
@@ -213,6 +201,30 @@ describe 'DocumentManager integration tests', db_integration: true do
         }.to change(child_one, :id)
       end
     end
+
+    context 'handling collection of childs' do
+      include_context 'parent node and childs environment'
+
+      it 'persists all objects from within collection when cascading' do
+        Parent.child_nodes :child_twos, cascade: true, foreign_key: :dad_id
+
+        child_twos = [ChildTwo.new, ChildTwo.new]
+
+        parent.child_twos << child_twos[0]
+
+        parent.child_twos << child_twos[1]
+
+        dm.persist parent
+
+        expect(child_twos[0].id).not_to be_nil
+        expect(child_twos[1].id).not_to be_nil
+        expect(uow.new_entities).to include parent, child_twos[0], child_twos[1]
+        expect(child_twos[0].dad_id).not_to be_nil
+        expect(child_twos[1].dad_id).not_to be_nil
+
+        dm.commit
+      end
+    end
   end
 
   context 'removing entities' do
@@ -235,11 +247,13 @@ describe 'DocumentManager integration tests', db_integration: true do
     end
 
     it 'raises ArgumentError when trying to change ID from a removed entity' do
-      dm.persist entity
+      entity.id = BSON::ObjectId.new
+
+      dm.remove entity
 
       expect {
         entity.id = BSON::ObjectId.new
-      }.to raise_error(ArgumentError, 'Cannot change ID from an entity that is still on current UnitOfWork')
+      }.to raise_error(ArgumentError, 'Cannot change ID when a previous value is already assigned.')
     end
 
     it 'removes an entity loaded from database' do
@@ -252,23 +266,6 @@ describe 'DocumentManager integration tests', db_integration: true do
 
       expect(uow.managed?(entity)).to be false
       expect(uow.managed?(loaded_entity)).to be false
-    end
-
-    it 'changes ID from detached entity, without marking on UnitOfWork' do
-      dm.persist entity
-      dm.commit
-
-      dm.remove entity
-      dm.detach entity
-      new_id = BSON::ObjectId.new
-
-      entity._id = new_id
-
-      expect(entity.id).to eql new_id
-
-      expect(
-        Persisty::Persistence::UnitOfWork.current.managed?(entity)
-      ).to be false
     end
 
     context 'handling single child nodes removal' do
@@ -421,18 +418,7 @@ describe 'DocumentManager integration tests', db_integration: true do
 
       expect {
         entity._id = BSON::ObjectId.new
-      }.to raise_error(ArgumentError, 'Cannot change ID from an entity that is still on current UnitOfWork')
-    end
-
-    it 'changes ID from detached entity, without marking on UnitOfWork' do
-      entity.first_name = 'John'
-
-      dm.detach entity
-      new_id = BSON::ObjectId.new
-
-      entity._id = new_id
-
-      expect(entity.id).to eql new_id
+      }.to raise_error(ArgumentError, 'Cannot change ID when a previous value is already assigned.')
     end
   end
 end

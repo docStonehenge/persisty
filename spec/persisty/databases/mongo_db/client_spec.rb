@@ -153,7 +153,7 @@ module Persisty
           end
         end
 
-        describe '#find_on collection, filter: {}, sort: {}' do
+        describe '#find_on collection, **options' do
           before do
             expect(::Mongo::Client).to receive(:new).with(
                                          'mongodb://127.0.0.1:27017/dummy_db'
@@ -167,7 +167,7 @@ module Persisty
           context 'when sort options argument is empty' do
             it 'calls find on collection using empty filter and returns entries' do
               expect(collection).to receive(:find).once.with(
-                                      {}, { sort: {} }
+                                      {}, {}
                                     ).and_return [{"foo" => "bar"}]
 
               expect(subject.find_on('foo')).to eql([{ 'foo' => 'bar' }])
@@ -175,7 +175,7 @@ module Persisty
 
             it 'calls find on collection using filter and returns entries' do
               expect(collection).to receive(:find).once.with(
-                                      { '_id' => '123' }, { sort: {} }
+                                      { '_id' => '123' }, {}
                                     ).and_return [{"foo" => "bar"}]
 
               expect(
@@ -202,6 +202,38 @@ module Persisty
 
               expect(
                 subject.find_on('foo', filter: { '_id' => '123' }, sort: { foo: :asc })
+              ).to eql [{"foo" => "bar"}]
+            end
+          end
+
+          context 'when limit options argument is present' do
+            it 'calls find on collection using empty filter and sort with limit option' do
+              expect(collection).to receive(:find).once.with(
+                                      {}, { limit: 1 }
+                                    ).and_return [{ "foo" => "bar" }]
+
+              expect(
+                subject.find_on('foo', limit: 1)
+              ).to eql([{ 'foo' => 'bar' }])
+            end
+
+            it 'calls find on collection using filter and limit' do
+              expect(collection).to receive(:find).once.with(
+                                      { '_id' => '123' }, { limit: 1 }
+                                    ).and_return [{"foo" => "bar"}]
+
+              expect(
+                subject.find_on('foo', filter: { '_id' => '123' }, limit: 1)
+              ).to eql [{"foo" => "bar"}]
+            end
+
+            it 'calls find on collection using filter, sort and limit' do
+              expect(collection).to receive(:find).once.with(
+                                      { '_id' => '123' }, { sort: { foo: -1 }, limit: 1 }
+                                    ).and_return [{"foo" => "bar"}]
+
+              expect(
+                subject.find_on('foo', filter: { '_id' => '123' }, sort: { foo: -1 }, limit: 1)
               ).to eql [{"foo" => "bar"}]
             end
           end

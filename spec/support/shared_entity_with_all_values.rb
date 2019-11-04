@@ -1,10 +1,6 @@
 shared_context 'EntityWithAllValues' do
-  include_context 'StubEntity'
-
   class ::EntityWithAllValues
     include Persisty::Persistence::DocumentDefinitions::Base
-
-    parent_node :test_scope, class_name: ::StubEntity
 
     define_field :field1, type: String
     define_field :field2, type: Integer

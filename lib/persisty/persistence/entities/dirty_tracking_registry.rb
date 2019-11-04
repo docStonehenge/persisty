@@ -58,7 +58,7 @@ module Persisty
         private
 
         def map_attributes_from(entity) # :nodoc:
-          entity.to_hash(include_id_field: false)
+          entity._raw_fields(include_id_field: false)
         end
       end
     end

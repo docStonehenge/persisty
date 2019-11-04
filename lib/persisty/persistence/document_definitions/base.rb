@@ -5,7 +5,7 @@ module Persisty
         include Comparable
 
         # Extends class-level behavior for entities, including document field definitions.
-        # Sets <tt>fields_list</tt> and <tt>fields</tt> class instance variables,
+        # Sets <tt>fields_reference</tt> class instance variable,
         # to hold fields properties, with proper reader methods.
         # Finally, defines <tt>id</tt> attribute, to hold primary key values for entity,
         # aliasing to <tt>_id</tt>, according to MongoDB field with same name.
@@ -13,21 +13,23 @@ module Persisty
           base.class_eval do
             extend(ClassMethods)
 
-            @fields_list       = [] # Collection of attributes set on entity, as symbols.
-            @fields            = {} # Contains specifications of field names and types.
-            @parent_nodes_list = []
-            @parent_nodes_map  = {}
-            @child_nodes_list  = []
-            @child_nodes_map   = {}
+            @fields_reference = FieldsReference.new
+            @nodes_reference  = NodesReference.new(self)
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
             alias_method(:_id=, :id=)
 
             class << self
-              attr_reader :fields_list, :fields,
-                          :parent_nodes_list, :parent_nodes_map,
-                          :child_nodes_list, :child_nodes_map
+              attr_reader :nodes_reference
+
+              def fields
+                @fields_reference.fields
+              end
+
+              def fields_list
+                @fields_reference.fields_list
+              end
             end
           end
         end
@@ -70,13 +72,11 @@ module Persisty
           initialize_nodes_based_on attributes
         end
 
-        # Enables comparison with another entity object, using Comparable built-in behavior.
-        # It raises a ComparisonError if caller doesn't have an id yet set, or
-        # if the object to be compared to doesn't have an id.
+        # Enables comparison with another entity object.
+        # Uses ancestor behavior when argument isn't from caller class.
         def <=>(other)
-          if id.nil? or other.id.nil?
-            raise Entities::ComparisonError
-          end
+          return super unless other.is_a?(self.class)
+          return object_id <=> other.object_id if [id, other.id].any?(&:nil?)
 
           id <=> other.id
         end
@@ -85,7 +85,7 @@ module Persisty
         # and their respective values, without including any relations.
         # <tt>include_id_field</tt> argument indicates if the Hash returned must
         # map the +id+ field or not.
-        def to_hash(include_id_field: true)
+        def _raw_fields(include_id_field: true)
           variables = instance_variables
           parent_nodes_list.each { |node| variables.delete(:"@#{node}") }
 
@@ -102,8 +102,10 @@ module Persisty
         # and their respective values converted to MongoDB friendly values.
         # <tt>include_id_field</tt> argument indicated if +_id+ field must
         # be present on document-like structure returned, for insertions or queries.
-        def to_mongo_document(include_id_field: true)
-          document = to_hash(include_id_field: include_id_field)
+        # It is used internally by repositories to map values from entities to
+        # documents on the database.
+        def _as_mongo_document(include_id_field: true)
+          document = _raw_fields(include_id_field: include_id_field)
 
           if include_id_field
             id_field = document.delete(:id)
@@ -117,22 +119,28 @@ module Persisty
           self.class.fields
         end
 
+        def nodes
+          self.class.nodes_reference
+        end
+
         def set_foreign_key_for(klass, foreign_key)
-          parent_node = self.class.parent_nodes_map.key(klass)
-          raise Errors::NoParentNodeError unless parent_node
-          public_send("#{parent_node}_id=", foreign_key)
+          nodes.find_all_parent_nodes_for(klass).each do |parent_node|
+            public_send("#{parent_node.name}_id=", foreign_key)
+          end
         end
 
         def parent_nodes_list
-          self.class.parent_nodes_list
+          nodes.parent_nodes_list
         end
 
-        def child_nodes_list
-          self.class.child_nodes_list
-        end
+        %i[child_node child_nodes].each do |type|
+          define_method("#{type}_list") { nodes.public_send(__callee__) }
 
-        def child_nodes_map
-          self.class.child_nodes_map
+          define_method("cascading_#{type}_objects") do
+            nodes.public_send(
+              "cascading_#{type}_list"
+            ).map { |node| public_send(node) }.compact
+          end
         end
 
         module ClassMethods
@@ -143,28 +151,55 @@ module Persisty
             raise NotImplementedError
           end
 
-          def child_node(name, class_name: nil)
-            child, child_klass = normalize_node_identification(name, class_name)
-            register_defined_node(:child_node, child, child_klass)
-            child_set_parent_node = parent_node_on(child_klass)
+          def child_nodes(name, class_name: nil, cascade: false, foreign_key: nil)
+            node_parser = CollectionNodeParser.new
+            node_parser.parse_node_identification(name, class_name)
+            node, klass = node_parser.node_name, node_parser.node_class
+            register_child_node(node.to_sym, klass, cascade, foreign_key)
+            collection_class = DocumentCollectionFactory.collection_for(klass)
 
             instance_eval do
-              define_single_child_node_reader(child, child_klass, child_set_parent_node)
-              define_single_child_node_writer(child, child_klass, child_set_parent_node)
+              define_method("#{node}") do
+                instance_variable_get("@#{node}") ||
+                  instance_variable_set(
+                    "@#{node}", collection_class.new(self, klass, foreign_key)
+                  )
+              end
+
+              define_method("#{node}=") do |collection|
+                instance_variable_set(
+                  "@#{node}",
+                  DocumentCollectionBuilder.new(
+                    self, public_send("#{node}"), klass
+                  ).build_with(collection, foreign_key)
+                )
+              end
+            end
+          end
+
+          def child_node(name, class_name: nil, cascade: false, foreign_key: nil)
+            node, klass = parse_node_identification(name, class_name)
+            register_child_node(node.to_sym, klass, cascade, foreign_key)
+
+            child_set_parent_node = parent_node_on(
+              klass, determine_parent_name_by_foreign_key(foreign_key)
+            )
+
+            instance_eval do
+              define_single_child_node_reader(node, klass, child_set_parent_node)
+              define_single_child_node_writer(node, klass, child_set_parent_node)
             end
           end
 
           def parent_node(name, class_name: nil)
-            parent_name, parent_klass = normalize_node_identification(name, class_name)
-            register_defined_node(:parent_node, parent_name, parent_klass)
-
-            foreign_key_field = (parent_name + '_id').to_sym
+            node, klass = parse_node_identification(name, class_name)
+            node_definition = { node: node.to_sym, class: klass }
+            nodes_reference.register_parent(node_definition)
+            klass.nodes_reference.register_parent(node_definition)
+            foreign_key_field = (node + '_id').to_sym
             register_defined_field foreign_key_field, BSON::ObjectId
             attr_reader foreign_key_field
-
-            define_parent_node_handling_methods(
-              parent_name, parent_klass, foreign_key_field
-            )
+            define_parent_node_handling_methods(node, klass, foreign_key_field)
           end
 
           # Defines accessors methods for field <tt>name</tt>, considering <tt>type</tt> to use
@@ -203,55 +238,53 @@ module Persisty
 
           private
 
-          def normalize_node_identification(node_name, class_name)
-            name  = StringModifiers::Underscorer.new.underscore(node_name.to_s)
-            klass = determine_node_class(name, class_name)
-
-            [name, klass]
+          def parse_node_identification(node_name, class_name)
+            node_parser = NodeParser.new
+            node_parser.parse_node_identification(node_name, class_name)
+            [node_parser.node_name, node_parser.node_class]
           end
 
-          def determine_node_class(node_name, class_name)
-            return Object.const_get(class_name.to_s) if class_name
-            Object.const_get(StringModifiers::Camelizer.new.camelize(node_name))
-          end
-
-          def parent_node_on(child_klass)
-            unless (node_name = child_klass.parent_nodes_map.key(self))
-              raise Errors::NoParentNodeError
-            end
-
-            node_name
+          def parent_node_on(klass, parent_node_name)
+            klass.nodes_reference.parent_node_for(parent_node_name, self).name
           end
 
           def register_defined_field(name, type)
-            @fields_list.push(name)
-            @fields[name] = { type: type }
+            @fields_reference.register(name, type)
           end
 
-          def register_defined_node(node_type, name, node_klass)
-            instance_variable_get("@#{node_type}s_list").push(name.to_sym)
-            instance_variable_get("@#{node_type}s_map")[name.to_sym] = node_klass
+          def register_child_node(node, node_class, cascade, foreign_key)
+            type       = caller_locations.first.label.to_sym
+            parent     = determine_parent_name_by_foreign_key(foreign_key)
+            definition = { node: node, class: node_class, cascade: cascade, foreign_key: foreign_key }
+            nodes_reference.public_send("register_#{type}", parent, self, definition)
+            node_class.nodes_reference.public_send("register_#{type}", parent, self, definition)
+          end
+
+          def determine_parent_name_by_foreign_key(foreign_key)
+            return name.underscore.to_sym unless foreign_key
+
+            foreign_key.to_s.gsub(/_id$/, '').to_sym
           end
 
           def define_writer_method_for(attribute, type) # :nodoc:
             instance_eval do
               define_method("#{attribute}=") do |value|
-                new_value = Entities::Field.new(type: type, value: value).coerce
-                handle_registration_for_changes_on attribute do
+                new_value = Entities::Field.(type: type, value: value)
+                handle_registration_for_changes_on attribute, new_value do
                   instance_variable_set(:"@#{attribute}", new_value)
                 end
               end
             end
           end
 
-          def define_parent_node_handling_methods(parent_node_name, parent_node_klass, foreign_key_field)
+          def define_parent_node_handling_methods(parent_node_name, parent_node_class, foreign_key_field)
             instance_eval do
               define_method("#{foreign_key_field}=") do |id|
-                new_value = Entities::Field.new(type: BSON::ObjectId, value: id).coerce
+                new_value = Entities::Field.(type: BSON::ObjectId, value: id)
 
                 return if instance_variable_get(:"@#{foreign_key_field}") == new_value
 
-                handle_registration_for_changes_on foreign_key_field do
+                handle_registration_for_changes_on foreign_key_field, new_value do
                   instance_variable_set(:"@#{foreign_key_field}", new_value)
                 end
 
@@ -259,28 +292,28 @@ module Persisty
               end
 
               define_parent_node_writer(
-                parent_node_name, parent_node_klass, foreign_key_field
+                parent_node_name, parent_node_class, foreign_key_field
               )
 
               define_parent_node_reader(
-                parent_node_name, parent_node_klass, foreign_key_field
+                parent_node_name, parent_node_class, foreign_key_field
               )
             end
           end
 
-          def define_parent_node_writer(name, parent_node_klass, foreign_key_field)
+          def define_parent_node_writer(name, parent_node_class, foreign_key_field)
             define_method("#{name}=") do |parent_object|
-              check_object_type_based_on(parent_node_klass, name, parent_object)
+              NodeAssignments::CheckObjectType.(parent_node_class, name, parent_object)
               instance_variable_set("@#{name}", parent_object)
               public_send("#{foreign_key_field}=", parent_object&.id)
             end
           end
 
-          def define_parent_node_reader(name, parent_node_klass, foreign_key_field)
+          def define_parent_node_reader(name, parent_node_class, foreign_key_field)
             define_method("#{name}") do
               if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{name}").nil?
-                parent = DocumentManager.new.find(
-                  parent_node_klass, instance_variable_get("@#{foreign_key_field}")
+                parent = Repositories::Registry[parent_node_class].find(
+                  instance_variable_get("@#{foreign_key_field}")
                 )
 
                 instance_variable_set("@#{name}", parent)
@@ -291,11 +324,11 @@ module Persisty
             end
           end
 
-          def define_single_child_node_reader(child_name, child_klass, child_set_parent_node)
+          def define_single_child_node_reader(child_name, child_class, child_set_parent_node)
             define_method("#{child_name}") do
               if instance_variable_get("@#{child_name}").nil?
-                child_obj = DocumentManager.new.find_all(
-                  child_klass, filter: { :"#{child_set_parent_node}_id" => id }
+                child_obj = Repositories::Registry[child_class].find_all(
+                  filter: { :"#{child_set_parent_node}_id" => id }
                 ).first
 
                 instance_variable_set("@#{child_name}", child_obj)
@@ -305,15 +338,15 @@ module Persisty
             end
           end
 
-          def define_single_child_node_writer(child_name, child_klass, child_set_parent_node)
+          def define_single_child_node_writer(child_name, child_class, child_set_parent_node)
             define_method("#{child_name}=") do |child_obj|
-              check_object_type_based_on(child_klass, child_name, child_obj)
+              NodeAssignments::CheckObjectType.(child_class, child_name, child_obj)
               previous_child = instance_variable_get("@#{child_name}")
 
               return if previous_child and previous_child.id == child_obj&.id
 
               handle_previous_child_removal previous_child, child_set_parent_node
-              child_obj.public_send("#{child_set_parent_node}=", self) if child_obj
+              child_obj&.public_send("#{child_set_parent_node}=", self)
               instance_variable_set("@#{child_name}", child_obj)
             end
           end
@@ -321,56 +354,67 @@ module Persisty
 
         private
 
-        def check_object_type_based_on(node_klass, node_name, object)
-          return if object.nil? or object.is_a? node_klass
-          raise TypeError, "Object is a type mismatch from defined node '#{node_name}'"
-        end
-
         def handle_previous_child_removal(previous_child, parent_node_name)
           return unless previous_child and previous_child.public_send(parent_node_name) == self
           previous_child.public_send("#{parent_node_name}=", nil)
-          DocumentManager.new.remove(previous_child)
+          Persistence::UnitOfWork.current.register_removed(previous_child)
         end
 
         def handle_current_parent_change(parent_node_name, new_parent_id)
-          return unless (current_parent = instance_variable_get(:"@#{parent_node_name}"))
+          current_parent = instance_variable_get(:"@#{parent_node_name}")
+          return unless different_parent?(new_parent_id, current_parent)
 
-          if current_parent.id and current_parent.id != new_parent_id
-            current_parent.public_send(
-              "#{current_parent.child_nodes_map.key(self.class)}=", nil
-            )
-
+          current_parent.nodes.child_nodes_for(
+            parent_node_name.to_sym, current_parent.class, self.class
+          ).each do |node|
+            current_parent.public_send(node.name).remove(self)
             instance_variable_set(:"@#{parent_node_name}", nil)
+            change_parent_collection node.name, parent_node_name, new_parent_id
           end
+
+          current_parent.nodes.child_node_for(
+            parent_node_name.to_sym, current_parent.class, self.class
+          ).each { |node| current_parent.public_send("#{node.name}=", nil) }
+
+          instance_variable_set(:"@#{parent_node_name}", nil)
+        end
+
+        def different_parent?(new_parent_id, current_parent)
+          return false unless current_parent
+          current_parent.id and current_parent.id != new_parent_id
+        end
+
+        def change_parent_collection(collection, parent_node, new_parent_id)
+          return unless new_parent_id
+          public_send(parent_node).public_send(collection).push(self)
         end
 
         def initialize_fields_with(attributes)
           fields.each do |name, spec|
             instance_variable_set(
               :"@#{name}",
-              Entities::Field.new(
-                type: spec.dig(:type), value: attributes.dig(name)
-              ).coerce
+              Entities::Field.(type: spec.dig(:type), value: attributes.dig(name))
             )
           end
         end
 
         def initialize_nodes_based_on(attributes)
           attributes.select do |attr|
-            parent_nodes_list.include?(attr) or child_nodes_list.include?(attr)
+            parent_nodes_list.include?(attr) or child_node_list.include?(attr)
           end.each { |node, value| public_send("#{node}=", value) }
         end
 
-        def handle_registration_for_changes_on(attribute) # :nodoc:
-          if attribute == :id and !Persistence::UnitOfWork.current.detached? self
+        def handle_registration_for_changes_on(attribute, new_value) # :nodoc:
+          current_value = public_send(attribute)
+
+          if attribute == :id and !current_value.nil? and current_value != new_value
             raise ArgumentError,
-                  'Cannot change ID from an entity that is still on current UnitOfWork'
+                  'Cannot change ID when a previous value is already assigned.'
           end
 
           yield
+
           Persistence::UnitOfWork.current.register_changed(self)
-        rescue Persistence::UnitOfWorkNotStartedError
-          yield
         end
       end
     end

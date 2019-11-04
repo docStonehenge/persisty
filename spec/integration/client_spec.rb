@@ -146,6 +146,12 @@ describe 'Databases::MongoDB::Client integration tests', db_integration: true do
       expect(result[2]).to include('a' => 'foo')
     end
 
+    it 'correctly returns documents limited at a certain number' do
+      result = subject.find_on(:test_collection, limit: 1).entries
+      expect(result.count).to eql 1
+      expect(result[0]).to include('a' => 'foo')
+    end
+
     it 'correctly returns documents filtered and sorted' do
       result = subject.find_on(
         :test_collection, filter: { a: { '$regex' => 'ba' } }, sort: { a: -1 }
@@ -156,6 +162,33 @@ describe 'Databases::MongoDB::Client integration tests', db_integration: true do
       result = result.entries
       expect(result[0]).to include('a' => 'bazz')
       expect(result[1]).to include('a' => 'bar')
+    end
+
+    it 'correctly returns documents filtered and limited at a certain number' do
+      result = subject.find_on(
+        :test_collection, filter: { a: { '$regex' => 'ba' } }, limit: 1
+      ).entries
+
+      expect(result.count).to eql 1
+      expect(result[0]).to include('a' => 'bar')
+    end
+
+    it 'correctly returns documents sorted and limited at a certain number' do
+      result = subject.find_on(
+        :test_collection, sort: { a: -1 }, limit: 1
+      ).entries
+
+      expect(result.count).to eql 1
+      expect(result[0]).to include('a' => 'foo')
+    end
+
+    it 'correctly returns documents filtered, sorted and limited at a certain number' do
+      result = subject.find_on(
+        :test_collection, filter: { a: { '$regex' => 'ba' } }, sort: { a: -1 }, limit: 1
+      ).entries
+
+      expect(result.count).to eql 1
+      expect(result[0]).to include('a' => 'bazz')
     end
   end
 

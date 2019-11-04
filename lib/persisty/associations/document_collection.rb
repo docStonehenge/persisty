@@ -1,68 +1,114 @@
 module Persisty
   module Associations
     class DocumentCollection
-      def initialize(parent, document_class, collection = nil)
+      def initialize(parent, document_class, foreign_key, entities = nil)
         @parent         = parent
         @document_class = document_class
-        @collection     = collection
+        @foreign_key    = foreign_key
+        @collection     = entities
+      end
+
+      def include?(entity)
+        load_collection
+        collection.include? entity
       end
 
       def reload
-        @collection = nil
+        collection&.each do |entity|
+          Persistence::UnitOfWork.current.detach(entity)
+        end
+
+        self.collection = nil
         load_collection
+
         self
       end
 
-      def to_mongo_document
-        all.map(&:to_mongo_document)
+      def _as_mongo_document
+        all.map(&:_as_mongo_document)
       end
 
       def size
         load_collection
-        @collection.size
+        collection.size
       end
 
       alias count size
 
+      def push(entity)
+        raise ArgumentError unless entity.is_a? @document_class
+        load_collection
+
+        return if include? entity
+
+        collection << entity
+        entity.public_send("#{foreign_key}=", @parent.id)
+        collection.sort! { |x, y| x <=> y }
+      end
+
+      alias << push
+
+      def remove(entity)
+        raise ArgumentError unless entity.is_a? @document_class
+        load_collection
+
+        return unless collection.delete(entity)
+
+        register_removal_for entity
+      end
+
       def all
         load_collection
-        @collection
+        collection
       end
+
+      alias to_a all
 
       def each(&block)
         load_collection
-        @collection.each(&block)
+        collection.each(&block)
       end
 
       def [](index)
         load_collection
-        @collection[index]
+        collection[index]
       end
 
       def first
-        load_collection
-        @collection.first
+        return collection.first unless collection.nil?
+        find_all_entities(limit: 1).first
       end
 
       def last
-        load_collection
-        @collection.last
+        return collection.last unless collection.nil?
+        find_all_entities(sort: { _id: -1 }, limit: 1).last
       end
 
       private
 
-      def load_collection
-        return unless @collection.nil?
+      attr_accessor :collection
 
-        @collection = DocumentManager.new.find_all(
-          @document_class, filter: { foreign_key => @parent.id }
+      def load_collection
+        return unless collection.nil?
+        self.collection = find_all_entities
+      end
+
+      def find_all_entities(**query_options)
+        Repositories::Registry[@document_class].find_all(
+          filter: { foreign_key => @parent.id }, **query_options
         )
       end
 
       def foreign_key
         (
-          StringModifiers::Underscorer.new.underscore("#{@parent.class}") + '_id'
+          @foreign_key.present? ? @foreign_key : "#{@parent.class}".underscore + '_id'
         ).to_sym
+      end
+
+      def register_removal_for(entity)
+        entity_foreign_key = entity.public_send(foreign_key)
+        return unless entity_foreign_key.nil? or entity_foreign_key == @parent.id
+        Persistence::UnitOfWork.current.register_removed(entity)
       end
     end
   end

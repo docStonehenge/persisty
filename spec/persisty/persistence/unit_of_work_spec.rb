@@ -25,7 +25,7 @@ module Persisty
 
         context "when no UnitOfWork is running on current Thread" do
           before do
-            Thread.current.thread_variable_set(:current_uow, nil)
+            described_class.current = nil
 
             expect(
               Thread.current.thread_variable_get(:current_uow)
@@ -70,10 +70,10 @@ module Persisty
           expect(described_class.current).to equal subject
         end
 
-        it 'raises UnitOfWorkNotStartedError when no instance is set on current Thread' do
-          expect {
-            Thread.new { described_class.current }.join
-          }.to raise_error(UnitOfWorkNotStartedError)
+        it "starts a new unit of work on thread when it doesn't have any" do
+          described_class.current = nil
+
+          expect(described_class.current).to be_an_instance_of(described_class)
         end
       end
 
@@ -305,10 +305,6 @@ module Persisty
       end
 
       describe '#managed? entity' do
-        before do
-          entity.id = BSON::ObjectId.new
-        end
-
         it 'is true when entity is present on clean entities' do
           subject.register_clean entity
           expect(subject.managed?(entity)).to be true
@@ -346,10 +342,6 @@ module Persisty
         end
 
         context 'when entity is present on list' do
-          before do
-            entity.id = BSON::ObjectId.new
-          end
-
           it 'is false when entity is present on clean entities' do
             subject.register_clean entity
             expect(subject.detached?(entity)).to be false

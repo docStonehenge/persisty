@@ -5,15 +5,10 @@ module Persisty
 
       # Sets a new instance of UnitOfWork as <tt>current_uow</tt> on running thread.
       # If a current UnitOfWork is present, uses entity registry set on it; if not,
-      # initializes a UnitOfWork with a new Entities::Registry.
+      # calling .current will set a new UnitOfWork and this method will reset the
+      # object on thread, using the registries already instantiated on .current.
       def self.new_current
-        self.current = new(
-          *begin
-            [current.clean_entities, current.dirty_tracking]
-          rescue UnitOfWorkNotStartedError
-            [Entities::Registry.new, Entities::DirtyTrackingRegistry.new]
-          end
-        )
+        self.current = new(current.clean_entities, current.dirty_tracking)
       end
 
       # Sets an instance of UnitOfWork as <tt>current_uow</tt> on running thread.
@@ -22,11 +17,13 @@ module Persisty
       end
 
       # Returns <tt>current_uow</tt> UnitOfWork on running thread.
-      # Raises UnitOfWorkNotStartedError when no instance is found on thread.
+      # Starts a new unit of work if running thread doesn't have any.
       def self.current
-        Thread.current.thread_variable_get(:current_uow).tap do |uow|
-          raise UnitOfWorkNotStartedError unless uow
+        unless (current_uow = Thread.current.thread_variable_get(:current_uow))
+          return self.current = new(Entities::Registry.new, Entities::DirtyTrackingRegistry.new)
         end
+
+        current_uow
       end
 
       attr_reader :clean_entities, :dirty_tracking, :new_entities,
