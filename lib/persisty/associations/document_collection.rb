@@ -101,7 +101,7 @@ module Persisty
 
       def foreign_key
         (
-          @foreign_key.present? ? @foreign_key : "#{@parent.class}".underscore + '_id'
+          @foreign_key.present? ? @foreign_key : @parent.class.name.to_foreign_key
         ).to_sym
       end
 

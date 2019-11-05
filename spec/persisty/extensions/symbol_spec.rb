@@ -26,4 +26,20 @@ describe 'Symbol class extension' do
       expect(:"\t").not_to be_present
     end
   end
+
+  describe '#to_foreign_key' do
+    it 'returns self with _id appended when applied' do
+      expect(:foo.to_foreign_key).to eql :foo_id
+      expect(:"fooza ".to_foreign_key).to eql :fooza_id
+      expect(:"".to_foreign_key).to eql :''
+    end
+  end
+
+  describe '#from_foreign_key' do
+    it 'returns self without _id appended when applied' do
+      expect(:foo_id.from_foreign_key).to eql :foo
+      expect(:"fooza_id ".from_foreign_key).to eql :fooza
+      expect(:"".from_foreign_key).to eql :''
+    end
+  end
 end

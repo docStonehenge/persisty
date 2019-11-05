@@ -66,7 +66,7 @@ module Persisty
               child_nodes[child_node_type].reject { |node| !node[:cascade] }.map do |node|
                 [
                   node[:node],
-                  (node[:foreign_key] || "#{parent_node[:node]}_id".to_sym)
+                  (node[:foreign_key] || parent_node[:node].to_foreign_key)
                 ]
               end
             end.flatten(1)

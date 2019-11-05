@@ -259,7 +259,7 @@ module Persisty
             node_definition = { node: node.to_sym, class: klass }
             nodes_reference.register_parent(node_definition)
             klass.nodes_reference.register_parent(node_definition)
-            foreign_key_field = (node + '_id').to_sym
+            foreign_key_field = node.to_foreign_key.to_sym
             register_defined_field foreign_key_field, BSON::ObjectId
             attr_reader foreign_key_field
             define_parent_node_handling_methods(node, klass, foreign_key_field)
@@ -391,7 +391,7 @@ module Persisty
             define_method("#{child_name}") do
               if instance_variable_get("@#{child_name}").nil?
                 child_obj = Repositories::Registry[child_class].find_all(
-                  filter: { :"#{child_set_parent_node}_id" => id }
+                  filter: { child_set_parent_node.to_foreign_key => id }
                 ).first
 
                 instance_variable_set("@#{child_name}", child_obj)
