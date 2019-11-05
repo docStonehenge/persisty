@@ -7,7 +7,7 @@ describe 'Hash class extension' do
     it 'returns itself with all values being transformed to mongo values' do
       expect(
         {
-          foo: "bar", "amount" => BigDecimal.new("459.90"), [1] => Date.parse('2017/01/01')
+          foo: "bar", "amount" => BigDecimal("459.90"), [1] => Date.parse('2017/01/01')
         }.to_mongo_value
       ).to eql(foo: 'bar', 'amount' => 459.9, [1] => Date.parse('2017/01/01'))
     end

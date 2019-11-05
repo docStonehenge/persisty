@@ -42,7 +42,7 @@ module Persisty
 
             expect(
               subject.entities.dig("dirtytrackedentity>>#{another_entity.id}")
-            ).to eql(first_name: ['Foo'], age: [30], wage: [BigDecimal.new('500')])
+            ).to eql(first_name: ['Foo'], age: [30], wage: [BigDecimal('500')])
           end
 
           it "doesn't add another object with same ID and class when already present" do
@@ -130,7 +130,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal.new('500'), BigDecimal.new('1_000_000')])
+              ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal('500'), BigDecimal('1_000_000')])
             end
           end
 
@@ -146,7 +146,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: [nil, 'Fooza'], age: [nil], wage: [BigDecimal.new('500')])
+              ).to eql(first_name: [nil, 'Fooza'], age: [nil], wage: [BigDecimal('500')])
             end
           end
 
@@ -164,7 +164,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal.new('500'), BigDecimal.new('1_000_000')])
+              ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal('500'), BigDecimal('1_000_000')])
 
               entity.first_name = nil
               entity.age  = nil
@@ -174,7 +174,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: [nil], age: [nil], wage: [BigDecimal.new('500')])
+              ).to eql(first_name: [nil], age: [nil], wage: [BigDecimal('500')])
             end
           end
 
@@ -192,7 +192,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal.new('500'), BigDecimal.new('1_000_000')])
+              ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal('500'), BigDecimal('1_000_000')])
 
               entity.first_name = 'Foobar'
               entity.age  = 32
@@ -202,7 +202,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: [nil, 'Foobar'], age: [nil, 32], wage: [BigDecimal.new('500'), BigDecimal.new('1_500')])
+              ).to eql(first_name: [nil, 'Foobar'], age: [nil, 32], wage: [BigDecimal('500'), BigDecimal('1_500')])
             end
           end
 
@@ -234,7 +234,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: ['Fooza'], age: [30], wage: [BigDecimal.new('1_000_000')])
+              ).to eql(first_name: ['Fooza'], age: [30], wage: [BigDecimal('1_000_000')])
             end
           end
 
@@ -251,7 +251,7 @@ module Persisty
 
               expect(
                 subject.entities.dig("dirtytrackedentity>>#{id}")
-              ).to eql(first_name: ['Fooza'], age: [nil], wage: [BigDecimal.new('500')])
+              ).to eql(first_name: ['Fooza'], age: [nil], wage: [BigDecimal('500')])
             end
           end
 
@@ -282,7 +282,7 @@ module Persisty
 
             expect(
               subject.changes_on(entity)
-            ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal.new('500'), BigDecimal.new('1_000_000')])
+            ).to eql(first_name: [nil, 'Fooza'], age: [nil, 30], wage: [BigDecimal('500'), BigDecimal('1_000_000')])
           end
 
           it 'returns only keys on hash for attributes that had changes' do
@@ -297,7 +297,7 @@ module Persisty
 
             expect(
               subject.changes_on(entity)
-            ).to eql(first_name: [nil, 'Fooza'], wage: [BigDecimal.new('500'), BigDecimal.new('1_000_000')])
+            ).to eql(first_name: [nil, 'Fooza'], wage: [BigDecimal('500'), BigDecimal('1_000_000')])
           end
 
           it "halts execution when entity isn't yet tracked" do
