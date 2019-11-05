@@ -123,12 +123,6 @@ module Persisty
           self.class.nodes_reference
         end
 
-        def set_foreign_key_for(klass, foreign_key)
-          nodes.find_all_parent_nodes_for(klass).each do |parent_node|
-            public_send("#{parent_node.name}_id=", foreign_key)
-          end
-        end
-
         def parent_nodes_list
           nodes.parent_nodes_list
         end
@@ -137,10 +131,75 @@ module Persisty
           define_method("#{type}_list") { nodes.public_send(__callee__) }
 
           define_method("cascading_#{type}_objects") do
-            nodes.public_send(
-              "cascading_#{type}_list"
-            ).map { |node| public_send(node) }.compact
+            nodes.public_send("cascading_#{type}_with_foreign_key").map do |node|
+              [public_send(node[0]), node[1]]
+            end.reject { |node| node[0].nil? }
           end
+        end
+
+        private
+
+        def handle_previous_child_removal(previous_child, parent_node_name)
+          return unless previous_child and previous_child.public_send(parent_node_name) == self
+          previous_child.public_send("#{parent_node_name}=", nil)
+          Persistence::UnitOfWork.current.register_removed(previous_child)
+        end
+
+        def handle_current_parent_change(parent_node_name, new_parent_id)
+          current_parent = instance_variable_get(:"@#{parent_node_name}")
+          return unless different_parent?(new_parent_id, current_parent)
+
+          current_parent.nodes.child_nodes_for(
+            parent_node_name.to_sym, current_parent.class, self.class
+          ).each do |node|
+            current_parent.public_send(node.name).remove(self)
+            instance_variable_set(:"@#{parent_node_name}", nil)
+            change_parent_collection node.name, parent_node_name, new_parent_id
+          end
+
+          current_parent.nodes.child_node_for(
+            parent_node_name.to_sym, current_parent.class, self.class
+          ).each { |node| current_parent.public_send("#{node.name}=", nil) }
+
+          instance_variable_set(:"@#{parent_node_name}", nil)
+        end
+
+        def different_parent?(new_parent_id, current_parent)
+          return false unless current_parent
+          current_parent.id and current_parent.id != new_parent_id
+        end
+
+        def change_parent_collection(collection, parent_node, new_parent_id)
+          return unless new_parent_id
+          public_send(parent_node).public_send(collection).push(self)
+        end
+
+        def initialize_fields_with(attributes)
+          fields.each do |name, spec|
+            instance_variable_set(
+              :"@#{name}",
+              Entities::Field.(type: spec.dig(:type), value: attributes.dig(name))
+            )
+          end
+        end
+
+        def initialize_nodes_based_on(attributes)
+          attributes.select do |attr|
+            parent_nodes_list.include?(attr) or child_node_list.include?(attr)
+          end.each { |node, value| public_send("#{node}=", value) }
+        end
+
+        def handle_registration_for_changes_on(attribute, new_value) # :nodoc:
+          current_value = public_send(attribute)
+
+          if attribute == :id and !current_value.nil? and current_value != new_value
+            raise ArgumentError,
+                  'Cannot change ID when a previous value is already assigned.'
+          end
+
+          yield
+
+          Persistence::UnitOfWork.current.register_changed(self)
         end
 
         module ClassMethods
@@ -350,71 +409,6 @@ module Persisty
               instance_variable_set("@#{child_name}", child_obj)
             end
           end
-        end
-
-        private
-
-        def handle_previous_child_removal(previous_child, parent_node_name)
-          return unless previous_child and previous_child.public_send(parent_node_name) == self
-          previous_child.public_send("#{parent_node_name}=", nil)
-          Persistence::UnitOfWork.current.register_removed(previous_child)
-        end
-
-        def handle_current_parent_change(parent_node_name, new_parent_id)
-          current_parent = instance_variable_get(:"@#{parent_node_name}")
-          return unless different_parent?(new_parent_id, current_parent)
-
-          current_parent.nodes.child_nodes_for(
-            parent_node_name.to_sym, current_parent.class, self.class
-          ).each do |node|
-            current_parent.public_send(node.name).remove(self)
-            instance_variable_set(:"@#{parent_node_name}", nil)
-            change_parent_collection node.name, parent_node_name, new_parent_id
-          end
-
-          current_parent.nodes.child_node_for(
-            parent_node_name.to_sym, current_parent.class, self.class
-          ).each { |node| current_parent.public_send("#{node.name}=", nil) }
-
-          instance_variable_set(:"@#{parent_node_name}", nil)
-        end
-
-        def different_parent?(new_parent_id, current_parent)
-          return false unless current_parent
-          current_parent.id and current_parent.id != new_parent_id
-        end
-
-        def change_parent_collection(collection, parent_node, new_parent_id)
-          return unless new_parent_id
-          public_send(parent_node).public_send(collection).push(self)
-        end
-
-        def initialize_fields_with(attributes)
-          fields.each do |name, spec|
-            instance_variable_set(
-              :"@#{name}",
-              Entities::Field.(type: spec.dig(:type), value: attributes.dig(name))
-            )
-          end
-        end
-
-        def initialize_nodes_based_on(attributes)
-          attributes.select do |attr|
-            parent_nodes_list.include?(attr) or child_node_list.include?(attr)
-          end.each { |node, value| public_send("#{node}=", value) }
-        end
-
-        def handle_registration_for_changes_on(attribute, new_value) # :nodoc:
-          current_value = public_send(attribute)
-
-          if attribute == :id and !current_value.nil? and current_value != new_value
-            raise ArgumentError,
-                  'Cannot change ID when a previous value is already assigned.'
-          end
-
-          yield
-
-          Persistence::UnitOfWork.current.register_changed(self)
         end
       end
     end

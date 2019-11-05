@@ -185,23 +185,6 @@ module Persisty
             end
           end
 
-          describe '#set_foreign_key_for klass, foreign_key' do
-            it 'calls correct writer for klass, assigning foreign_key' do
-              expect(subject).to receive(:stub_entity_id=).once.with(123)
-              subject.set_foreign_key_for(StubEntity, 123)
-            end
-
-            it 'raises NoParentNodeError when no foreign key is set for klass' do
-              expect {
-                subject.set_foreign_key_for(TestClass, 123)
-              }.to raise_error(
-                     Errors::NoParentNodeError,
-                     "Child node class must have a foreign_key field set for parent. "\
-                     "Use '.parent_node' method on child class to set correct parent_node relation."
-                   )
-            end
-          end
-
           describe '#parent_nodes_list' do
             it 'returns list of parent_nodes set on object class' do
               expect(subject.parent_nodes_list).to include :stub_entity
@@ -220,7 +203,7 @@ module Persisty
           end
 
           describe '#cascading_child_node_objects' do
-            it 'returns list of cascading child_objects set on object class' do
+            it 'returns list of cascading child_objects set on object class with their foreign keys' do
               StubEntity.child_node :test_entity
               StubEntity.child_node :fooza, cascade: true, class_name: 'TestEntity', foreign_key: :stub_entity_id
 
@@ -229,7 +212,7 @@ module Persisty
               subject.test_entity = test_entities[0]
               subject.fooza = test_entities[1]
 
-              expect(subject.cascading_child_node_objects).to contain_exactly(test_entities[1])
+              expect(subject.cascading_child_node_objects).to contain_exactly([test_entities[1], :stub_entity_id])
             end
           end
 
@@ -256,7 +239,7 @@ module Persisty
 
               expect(
                 subject.cascading_child_nodes_objects
-              ).to contain_exactly test_entity_collection
+              ).to contain_exactly [test_entity_collection, :stub_entity_id]
             end
           end
 

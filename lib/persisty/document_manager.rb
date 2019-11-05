@@ -26,10 +26,10 @@ module Persisty
     def remove(entity)
       unit_of_work.register_removed entity
 
-      entity.cascading_child_node_objects.each { |child| remove child }
+      entity.cascading_child_node_objects.each { |child| remove child[0] }
 
       entity.cascading_child_nodes_objects.each do |collection|
-        collection.each { |child| remove child }
+        collection[0].each { |child| remove child }
       end
     end
 
@@ -63,18 +63,18 @@ module Persisty
 
     def cascade_persistence_on(entity)
       entity.cascading_child_node_objects.each do |child|
-        persist_child_for entity, child
+        persist_child_for entity, child[0], child[1]
       end
 
       entity.cascading_child_nodes_objects.each do |collection|
-        collection.each do |child|
-          persist_child_for entity, child
+        collection[0].each do |child|
+          persist_child_for entity, child, collection[1]
         end
       end
     end
 
-    def persist_child_for(entity, child)
-      child.set_foreign_key_for(entity.class, entity.id)
+    def persist_child_for(entity, child, foreign_key)
+      child.public_send("#{foreign_key}=", entity.id)
       assign_new_id_to child
       unit_of_work.register_new child
       cascade_persistence_on child

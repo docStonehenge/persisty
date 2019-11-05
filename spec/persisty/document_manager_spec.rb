@@ -189,20 +189,20 @@ module Persisty
         let(:child_one_children) do
           [
             double(:child_one_level_1, cascading_child_node_objects: [], cascading_child_nodes_objects: []),
-            double(:child_one_level_1, class: Symbol, cascading_child_node_objects: [child_one_level_2_first], cascading_child_nodes_objects: []),
-            double(:child_one_level_1, class: Symbol, cascading_child_node_objects: [], cascading_child_nodes_objects: [child_one_level_2_collection])
+            double(:child_one_level_1, class: Symbol, cascading_child_node_objects: [[child_one_level_2_first, :foo_id]], cascading_child_nodes_objects: []),
+            double(:child_one_level_1, class: Symbol, cascading_child_node_objects: [], cascading_child_nodes_objects: [[child_one_level_2_collection, :foo_id]])
           ]
         end
 
         let(:child_one_level_2_first) { double(:child_one_level_2, cascading_child_node_objects: [], cascading_child_nodes_objects: []) }
-        let(:child_one) { double(:child_one, class: Float, cascading_child_node_objects: [child_one_children[0]], cascading_child_nodes_objects: [child_one_children[1..2]]) }
+        let(:child_one) { double(:child_one, class: Float, cascading_child_node_objects: [[child_one_children[0], :test_id]], cascading_child_nodes_objects: [[child_one_children[1..2], :test_id]]) }
         let(:child_two) { double(:child_two, cascading_child_node_objects: [], cascading_child_nodes_objects: []) }
 
         before do
           allow(entity).to receive(:id).and_return nil
           allow(entity).to receive(:class).and_return Object
-          expect(entity).to receive(:cascading_child_node_objects).and_return [child_two]
-          expect(entity).to receive(:cascading_child_nodes_objects).and_return [child_ones]
+          expect(entity).to receive(:cascading_child_node_objects).and_return [[child_two, :entity_id]]
+          expect(entity).to receive(:cascading_child_nodes_objects).and_return [[child_ones, :entity_id]]
           allow(id_gen).to receive(:generate).and_return 123, 130, 124, 125, 126, 128, 127, 129
           expect(entity).to receive(:id=).once.with(123)
         end
@@ -210,31 +210,31 @@ module Persisty
         it 'sets entity ID, same ID as foreign key on each child, registers entity and childs as new' do
           allow(child_one).to receive(:id).and_return nil
           expect(child_one).to receive(:id=).once.with(124)
-          expect(child_one).to receive(:set_foreign_key_for).once.with(Object, entity.id)
+          expect(child_one).to receive(:entity_id=).once.with(entity.id)
 
           allow(child_one_children[0]).to receive(:id).and_return nil
           expect(child_one_children[0]).to receive(:id=).once.with(125)
-          expect(child_one_children[0]).to receive(:set_foreign_key_for).once.with(Float, child_one.id)
+          expect(child_one_children[0]).to receive(:test_id=).once.with(child_one.id)
 
           allow(child_one_children[1]).to receive(:id).and_return nil
           expect(child_one_children[1]).to receive(:id=).once.with(126)
-          expect(child_one_children[1]).to receive(:set_foreign_key_for).once.with(Float, child_one.id)
+          expect(child_one_children[1]).to receive(:test_id=).once.with(child_one.id)
 
           allow(child_one_level_2_first).to receive(:id).and_return nil
           expect(child_one_level_2_first).to receive(:id=).once.with(128)
-          expect(child_one_level_2_first).to receive(:set_foreign_key_for).once.with(Symbol, child_one_children[1].id)
+          expect(child_one_level_2_first).to receive(:foo_id=).once.with(child_one_children[1].id)
 
           allow(child_one_children[2]).to receive(:id).and_return nil
           expect(child_one_children[2]).to receive(:id=).once.with(127)
-          expect(child_one_children[2]).to receive(:set_foreign_key_for).once.with(Float, child_one.id)
+          expect(child_one_children[2]).to receive(:test_id=).once.with(child_one.id)
 
           allow(child_one_level_2_last).to receive(:id).and_return nil
           expect(child_one_level_2_last).to receive(:id=).once.with(129)
-          expect(child_one_level_2_last).to receive(:set_foreign_key_for).once.with(Symbol, child_one_children[2].id)
+          expect(child_one_level_2_last).to receive(:foo_id=).once.with(child_one_children[2].id)
 
           allow(child_two).to receive(:id).and_return nil
           expect(child_two).to receive(:id=).once.with(130)
-          expect(child_two).to receive(:set_foreign_key_for).once.with(Object, entity.id)
+          expect(child_two).to receive(:entity_id=).once.with(entity.id)
 
           [
             entity, child_one, child_two, *child_one_children,
@@ -267,18 +267,18 @@ module Persisty
         let(:child_one_children) do
           [
             double(:child_one_level_1, cascading_child_node_objects: [], cascading_child_nodes_objects: []),
-            double(:child_one_level_1, cascading_child_node_objects: [child_one_level_2_first], cascading_child_nodes_objects: []),
-            double(:child_one_level_1, cascading_child_node_objects: [], cascading_child_nodes_objects: [child_one_level_2_collection])
+            double(:child_one_level_1, cascading_child_node_objects: [[child_one_level_2_first, :bar_id]], cascading_child_nodes_objects: []),
+            double(:child_one_level_1, cascading_child_node_objects: [], cascading_child_nodes_objects: [[child_one_level_2_collection, :bar_id]])
           ]
         end
 
         let(:child_one_level_2_first) { double(:child_one_level_2, cascading_child_node_objects: [], cascading_child_nodes_objects: []) }
-        let(:child_one) { double(:child_one, cascading_child_node_objects: [child_one_children[0]], cascading_child_nodes_objects: [child_one_children[1..2]]) }
+        let(:child_one) { double(:child_one, cascading_child_node_objects: [[child_one_children[0], :foo_id]], cascading_child_nodes_objects: [[child_one_children[1..2], :foo_id]]) }
         let(:child_two) { double(:child_two, cascading_child_node_objects: [], cascading_child_nodes_objects: []) }
 
         before do
-          expect(entity).to receive(:cascading_child_node_objects).and_return [child_two]
-          expect(entity).to receive(:cascading_child_nodes_objects).and_return [child_ones]
+          expect(entity).to receive(:cascading_child_node_objects).and_return [[child_two, :entity_id]]
+          expect(entity).to receive(:cascading_child_nodes_objects).and_return [[child_ones, :entity_id]]
         end
 
         it 'registers parent and all childs from each collection to be removed' do

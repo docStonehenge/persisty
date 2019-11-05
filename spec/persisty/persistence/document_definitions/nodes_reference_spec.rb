@@ -51,6 +51,19 @@ module Persisty
                  )
           end
 
+          it 'returns without registering when node is already registered for same referable' do
+            subject.register_parent node: :foo, class: ::String
+            subject.register_parent node: :foo, class: ::String
+
+            expect(
+              subject.instance_variable_get(:@nodes)
+            ).to eql(
+                   { node: :foo, class: ::String } => {
+                     child_node: [], child_nodes: []
+                   }
+                 )
+          end
+
           context 'when node_definition is invalid' do
             it 'raises error when nodes already has key with same node and class' do
               subject.register_parent node: :foo, class: ::StubEntity
@@ -297,24 +310,6 @@ module Persisty
           end
         end
 
-        describe '#find_all_parent_nodes_for klass' do
-          it 'returns all registered parent_nodes for determined class' do
-            subject.register_parent node: :foo, class: ::StubEntity
-            subject.register_parent node: :bar, class: ::StubEntity
-
-            result = subject.find_all_parent_nodes_for(::StubEntity)
-
-            expect(result[0].name).to eql :foo
-            expect(result[1].name).to eql :bar
-          end
-
-          it 'raises Errors::NoParentNodeError when no parent_nodes are found' do
-            expect {
-              subject.find_all_parent_nodes_for(::StubEntity)
-            }.to raise_error(Errors::NoParentNodeError)
-          end
-        end
-
         describe '#child_node_for parent_node, parent_class, child_class' do
           context 'when parent node definition is present' do
             before { subject.register_parent node: :foo, class: ::String }
@@ -450,16 +445,17 @@ module Persisty
           end
         end
 
-        describe '#cascading_child_node_list' do
+        describe '#cascading_child_node_with_foreign_key' do
           it 'returns a collection of all child_node on parent which have cascade as true' do
             subject.register_parent node: :foo, class: ::String
 
             subject.register_child_node(:foo, String, { node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: nil })
             subject.register_child_node(:foo, String, { node: :fooza, class: ::ParentEntity, cascade: false, foreign_key: nil })
+            subject.register_child_node(:foo, String, { node: :stubs, class: ::StubEntity, cascade: true, foreign_key: :foo_id })
 
             expect(
-              subject.cascading_child_node_list
-            ).to contain_exactly(:stub_entity)
+              subject.cascading_child_node_with_foreign_key
+            ).to contain_exactly([:stub_entity, :foo_id], [:stubs, :foo_id])
           end
 
           it 'returns an empty array when no cascading child is available' do
@@ -468,7 +464,7 @@ module Persisty
             subject.register_child_node(:foo, String, { node: :stub_entity, class: ::StubEntity, cascade: false, foreign_key: nil })
             subject.register_child_node(:foo, String, { node: :fooza, class: ::ParentEntity, cascade: false, foreign_key: nil })
 
-            expect(subject.cascading_child_node_list).to be_empty
+            expect(subject.cascading_child_node_with_foreign_key).to be_empty
           end
 
           it 'returns an empty array when no cascading child is available for parent class' do
@@ -476,15 +472,15 @@ module Persisty
 
             subject.register_child_node(:foo, ParentEntity, { node: :stub_entity, class: ::StubEntity, cascade: true, foreign_key: nil })
 
-            expect(subject.cascading_child_node_list).to be_empty
+            expect(subject.cascading_child_node_with_foreign_key).to be_empty
           end
 
           it "returns an empty array when parent class isn't registered" do
-            expect(subject.cascading_child_node_list).to be_empty
+            expect(subject.cascading_child_node_with_foreign_key).to be_empty
           end
         end
 
-        describe '#cascading_child_nodes_list' do
+        describe '#cascading_child_nodes_with_foreign_key' do
           it 'returns a collection of all child_nodes on parent which have cascade as true' do
             subject.register_parent node: :foo, class: ::String
             subject.register_parent node: :bar, class: ::String
@@ -494,8 +490,8 @@ module Persisty
             subject.register_child_nodes(:bar, String, { node: :parents, class: ::ParentEntity, cascade: nil, foreign_key: :bar_id })
 
             expect(
-              subject.cascading_child_nodes_list
-            ).to contain_exactly(:stub_entities)
+              subject.cascading_child_nodes_with_foreign_key
+            ).to contain_exactly([:stub_entities, :foo_id])
           end
 
           it 'returns an empty array when no cascading child is available' do
@@ -504,7 +500,7 @@ module Persisty
             subject.register_child_nodes(:foo, String, { node: :stub_entities, class: ::StubEntity, cascade: false, foreign_key: nil })
             subject.register_child_nodes(:foo, String, { node: :foozas, class: ::ParentEntity, cascade: false, foreign_key: nil })
 
-            expect(subject.cascading_child_nodes_list).to be_empty
+            expect(subject.cascading_child_nodes_with_foreign_key).to be_empty
           end
 
           it 'returns an empty array when no cascading child is available for parent class' do
@@ -512,11 +508,11 @@ module Persisty
 
             subject.register_child_nodes(:foo, ParentEntity, { node: :stub_entities, class: ::StubEntity, cascade: true, foreign_key: nil })
 
-            expect(subject.cascading_child_nodes_list).to be_empty
+            expect(subject.cascading_child_nodes_with_foreign_key).to be_empty
           end
 
           it "returns an empty array when parent class isn't registered" do
-            expect(subject.cascading_child_nodes_list).to be_empty
+            expect(subject.cascading_child_nodes_with_foreign_key).to be_empty
           end
         end
       end
