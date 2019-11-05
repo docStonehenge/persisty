@@ -74,7 +74,7 @@ module Persisty
     end
 
     def persist_child_for(entity, child, foreign_key)
-      child.public_send("#{foreign_key}=", entity.id)
+      child.assign_foreign_key(foreign_key, entity.id)
       assign_new_id_to child
       unit_of_work.register_new child
       cascade_persistence_on child

@@ -584,6 +584,20 @@ module Persisty
                    )
             end
           end
+
+          describe '#assign_foreign_key foreign_key_name, id' do
+            it 'assigns id correctly to foreign_key field with foreign_key_name' do
+              id = BSON::ObjectId.new
+              subject.assign_foreign_key :stub_entity_id, id
+              expect(subject.stub_entity_id).to eql id
+            end
+
+            it "raises error when foreign_key field doesn't exist" do
+              expect {
+                subject.assign_foreign_key :foo_id, BSON::ObjectId.new
+              }.to raise_error(NoMethodError)
+            end
+          end
         end
       end
     end

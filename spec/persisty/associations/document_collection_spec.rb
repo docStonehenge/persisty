@@ -364,7 +364,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                     subject << other_entity
 
@@ -376,7 +376,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:string_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject << other_entity
 
@@ -392,7 +392,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                   subject << other_entity
                   expect(collection).to include(other_entity, entity)
@@ -423,7 +423,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                     subject << other_entity
 
@@ -435,7 +435,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:foo_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject << other_entity
 
@@ -451,7 +451,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                   subject << other_entity
                   expect(collection).to include(other_entity, entity)
@@ -496,7 +496,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                     subject.push other_entity
 
@@ -508,7 +508,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:string_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject.push other_entity
 
@@ -524,7 +524,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                   subject.push other_entity
                   expect(collection).to include(other_entity, entity)
@@ -555,7 +555,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                     subject.push other_entity
 
@@ -567,7 +567,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:foo_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject.push other_entity
 
@@ -583,7 +583,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                   subject.push other_entity
                   expect(collection).to include(other_entity, entity)
@@ -1067,7 +1067,7 @@ module Persisty
 
             context "when collection doesn't include entity yet" do
               it 'pushes entity to collection, sorting collection after' do
-                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                 subject << other_entity
 
@@ -1081,7 +1081,7 @@ module Persisty
               subject { described_class.new(parent, StubEntity, nil, collection) }
 
               it 'skips pushing and sorting on collection' do
-                expect(other_entity).not_to receive(:string_id=).with(any_args)
+                expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                 subject << other_entity
 
@@ -1093,7 +1093,7 @@ module Persisty
 
           context "when entity doesn't have ID" do
             before do
-              expect(other_entity).to receive(:string_id=).once.with(parent.id)
+              expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
             end
 
             it 'pushes entity to collection' do
@@ -1137,7 +1137,7 @@ module Persisty
 
             context "when collection doesn't include entity yet" do
               it 'pushes entity to collection, sorting collection after' do
-                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                 subject.push other_entity
 
@@ -1151,7 +1151,7 @@ module Persisty
               subject { described_class.new(parent, StubEntity, nil, collection) }
 
               it 'skips pushing and sorting on collection' do
-                expect(other_entity).not_to receive(:string_id=).with(any_args)
+                expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                 subject.push other_entity
 
@@ -1163,7 +1163,7 @@ module Persisty
 
           context "when entity doesn't have ID" do
             before do
-              expect(other_entity).to receive(:string_id=).once.with(parent.id)
+              expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
             end
 
             it 'pushes entity to collection' do

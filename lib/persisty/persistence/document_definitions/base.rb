@@ -127,6 +127,10 @@ module Persisty
           nodes.parent_nodes_list
         end
 
+        def assign_foreign_key(foreign_key_name, id)
+          public_send("#{foreign_key_name}=", id)
+        end
+
         %i[child_node child_nodes].each do |type|
           define_method("#{type}_list") { nodes.public_send(__callee__) }
 
@@ -364,7 +368,7 @@ module Persisty
             define_method("#{name}=") do |parent_object|
               NodeAssignments::CheckObjectType.(parent_node_class, name, parent_object)
               instance_variable_set("@#{name}", parent_object)
-              public_send("#{foreign_key_field}=", parent_object&.id)
+              assign_foreign_key foreign_key_field, parent_object&.id
             end
           end
 

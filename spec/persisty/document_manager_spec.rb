@@ -210,31 +210,31 @@ module Persisty
         it 'sets entity ID, same ID as foreign key on each child, registers entity and childs as new' do
           allow(child_one).to receive(:id).and_return nil
           expect(child_one).to receive(:id=).once.with(124)
-          expect(child_one).to receive(:entity_id=).once.with(entity.id)
+          expect(child_one).to receive(:assign_foreign_key).once.with(:entity_id, entity.id)
 
           allow(child_one_children[0]).to receive(:id).and_return nil
           expect(child_one_children[0]).to receive(:id=).once.with(125)
-          expect(child_one_children[0]).to receive(:test_id=).once.with(child_one.id)
+          expect(child_one_children[0]).to receive(:assign_foreign_key).once.with(:test_id, child_one.id)
 
           allow(child_one_children[1]).to receive(:id).and_return nil
           expect(child_one_children[1]).to receive(:id=).once.with(126)
-          expect(child_one_children[1]).to receive(:test_id=).once.with(child_one.id)
+          expect(child_one_children[1]).to receive(:assign_foreign_key).once.with(:test_id, child_one.id)
 
           allow(child_one_level_2_first).to receive(:id).and_return nil
           expect(child_one_level_2_first).to receive(:id=).once.with(128)
-          expect(child_one_level_2_first).to receive(:foo_id=).once.with(child_one_children[1].id)
+          expect(child_one_level_2_first).to receive(:assign_foreign_key).once.with(:foo_id, child_one_children[1].id)
 
           allow(child_one_children[2]).to receive(:id).and_return nil
           expect(child_one_children[2]).to receive(:id=).once.with(127)
-          expect(child_one_children[2]).to receive(:test_id=).once.with(child_one.id)
+          expect(child_one_children[2]).to receive(:assign_foreign_key).once.with(:test_id, child_one.id)
 
           allow(child_one_level_2_last).to receive(:id).and_return nil
           expect(child_one_level_2_last).to receive(:id=).once.with(129)
-          expect(child_one_level_2_last).to receive(:foo_id=).once.with(child_one_children[2].id)
+          expect(child_one_level_2_last).to receive(:assign_foreign_key).once.with(:foo_id, child_one_children[2].id)
 
           allow(child_two).to receive(:id).and_return nil
           expect(child_two).to receive(:id=).once.with(130)
-          expect(child_two).to receive(:entity_id=).once.with(entity.id)
+          expect(child_two).to receive(:assign_foreign_key).once.with(:entity_id, entity.id)
 
           [
             entity, child_one, child_two, *child_one_children,
