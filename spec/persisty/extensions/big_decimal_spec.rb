@@ -21,7 +21,7 @@ describe 'BigDecimal extension' do
 
   describe '#to_mongo_value' do
     it 'returns float value from BigDecimal value' do
-      value = BigDecimal.new("459.99")
+      value = BigDecimal("459.99")
 
       expect(value.to_mongo_value).to eql value.to_f
     end
@@ -29,6 +29,6 @@ describe 'BigDecimal extension' do
 
   it '#present?' do
     expect(BigDecimal.try_convert('0')).to be_present
-    expect(BigDecimal.new(0)).to be_present
+    expect(BigDecimal(0)).to be_present
   end
 end

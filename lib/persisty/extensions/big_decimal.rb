@@ -2,7 +2,7 @@ require 'bigdecimal'
 
 class BigDecimal
   def self.try_convert(value)
-    new(value, 8)
+    BigDecimal(value, 8)
   rescue TypeError, ArgumentError
     nil
   end
