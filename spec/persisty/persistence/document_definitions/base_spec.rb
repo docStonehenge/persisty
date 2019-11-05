@@ -1579,9 +1579,9 @@ module Persisty
             subject do
               EntityWithAllValues.new(
                 id: id, field1: "Foo", field2: 123, field3: 123.0,
-                field4: BigDecimal.new("123.0"), field5: true,
-                field6: [123, BigDecimal.new("200")],
-                field7: { foo: Date.parse("01/01/1990"), 'bazz' => BigDecimal.new(400) },
+                field4: BigDecimal("123.0"), field5: true,
+                field6: [123, BigDecimal("200")],
+                field7: { foo: Date.parse("01/01/1990"), 'bazz' => BigDecimal(400) },
                 field8: id, field9: Date.parse('01/01/1990'),
                 field10: DateTime.new(2017, 11, 21), field11: Time.new(2017, 11, 21)
               )
