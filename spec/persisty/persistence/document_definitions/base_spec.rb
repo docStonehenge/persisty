@@ -89,8 +89,8 @@ module Persisty
                     expect(parent1.test_class).to eql @subject
 
                     allow(Persistence::UnitOfWork).to receive(:current).and_return uow
-                    expect(uow).to receive(:register_changed).once.with(parent1)
-                    expect(uow).to receive(:register_changed).once.with(parent2)
+                    expect(uow).to receive(:register_changed).twice.with(parent1)
+                    expect(uow).to receive(:register_changed).twice.with(parent2)
 
                     @subject.stub_entity = parent2
                     expect(@subject.stub_entity).to eql parent2
@@ -110,7 +110,7 @@ module Persisty
                     expect(parent.test_class).to eql @subject
 
                     allow(Persistence::UnitOfWork).to receive(:current).and_return uow
-                    expect(uow).to receive(:register_changed).once.with(parent)
+                    expect(uow).to receive(:register_changed).twice.with(parent)
 
                     @subject.stub_entity = nil
 
@@ -198,6 +198,96 @@ module Persisty
                        "Class must have a parent correctly set up. "\
                        "Use parent definition method on child class to set correct parent_node relation."
                      )
+              end
+
+              it 'raises TypeError with custom message on writer when object is a type mismatch' do
+                StubEntity.embedding_parent :foo, class_name: TestClass
+                described_class.embed_child :stub_entity, embedding_parent: :foo
+
+                expect {
+                  @subject.stub_entity = Object.new
+                }.to raise_error(TypeError, "Object is a type mismatch from defined node 'stub_entity'")
+              end
+
+              context 'when assigning child' do
+                it 'registers parent as changed when assigning new child from nil' do
+                  StubEntity.embedding_parent :foo, class_name: TestClass
+                  described_class.embed_child :stub_entity, embedding_parent: :foo
+
+                  stub_entity = StubEntity.new
+
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:register_changed).once.with(@subject)
+
+                  @subject.stub_entity = stub_entity
+
+                  expect(@subject.stub_entity).to eql stub_entity
+                  expect(stub_entity.foo).to eql @subject
+                end
+
+                it 'register parent as changed when assigning nil from child' do
+                  StubEntity.embedding_parent :foo, class_name: TestClass
+                  described_class.embed_child :stub_entity, embedding_parent: :foo
+
+                  stub_entity = StubEntity.new
+
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:register_changed).once.with(@subject)
+
+                  @subject.stub_entity = stub_entity
+                  expect(@subject.stub_entity).to eql stub_entity
+                  expect(stub_entity.foo).to eql @subject
+
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:register_changed).once.with(@subject)
+
+                  @subject.stub_entity = nil
+                  expect(@subject.stub_entity).to be_nil
+                  expect(stub_entity.foo).to be_nil
+                end
+
+                it 'register parent as changed when assigning different child' do
+                  StubEntity.embedding_parent :foo, class_name: TestClass
+                  described_class.embed_child :stub_entity, embedding_parent: :foo
+
+                  stub_entity1 = StubEntity.new
+                  stub_entity2 = StubEntity.new
+
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:register_changed).once.with(@subject)
+
+                  @subject.stub_entity = stub_entity1
+                  expect(@subject.stub_entity).to eql stub_entity1
+                  expect(stub_entity1.foo).to eql @subject
+
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:register_changed).once.with(@subject)
+
+                  @subject.stub_entity = stub_entity2
+                  expect(stub_entity1.foo).to be_nil
+                  expect(@subject.stub_entity).to eql stub_entity2
+                  expect(stub_entity2.foo).to eql @subject
+                end
+
+                it 'halts execution when same child is assigned' do
+                  StubEntity.embedding_parent :foo, class_name: TestClass
+                  described_class.embed_child :stub_entity, embedding_parent: :foo
+
+                  stub_entity = StubEntity.new
+
+                  expect(Persistence::UnitOfWork).to receive(:current).once.and_return uow
+                  expect(uow).to receive(:register_changed).once.with(@subject)
+
+                  @subject.stub_entity = stub_entity
+                  expect(@subject.stub_entity).to eql stub_entity
+                  expect(stub_entity.foo).to eql @subject
+
+                  expect(uow).not_to receive(:register_changed).with(@subject)
+
+                  @subject.stub_entity = stub_entity
+                  expect(@subject.stub_entity).to eql stub_entity
+                  expect(stub_entity.foo).to eql @subject
+                end
               end
             end
           end

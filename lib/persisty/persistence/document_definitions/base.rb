@@ -267,12 +267,25 @@ module Persisty
           end
 
           def embed_child(name, class_name: nil, embedding_parent: nil)
-            node, klass = parse_node_identification(name, class_name)
-            parent = (embedding_parent || self.name).to_s.underscore.to_sym
-            node_definition = { node: node.to_sym, class: klass, cascade: false, foreign_key: nil }
+            node, klass  = parse_node_identification(name, class_name)
+            node, parent = node.to_sym, (embedding_parent || self.name).to_s.underscore.to_sym
+            node_definition = { node: node, class: klass, cascade: false, foreign_key: nil }
             embedding_reference.register_child_node(parent, self, node_definition)
             klass.embedding_reference.register_child_node(parent, self, node_definition)
-            attr_accessor node
+            attr_reader node
+
+            instance_eval do
+              define_method("#{node}=") do |embedded_child|
+                NodeAssignments::CheckObjectType.(klass, node, embedded_child)
+                current_child = instance_variable_get("@#{node}")
+                return if current_child == embedded_child
+
+                instance_variable_set("@#{node}", embedded_child)
+                current_child&.instance_variable_set("@#{parent}", nil)
+                embedded_child&.instance_variable_set("@#{parent}", self)
+                Persistence::UnitOfWork.current.register_changed(self)
+              end
+            end
           end
 
           def embedding_parent(name, class_name: nil)
