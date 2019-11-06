@@ -40,6 +40,7 @@ module Persisty
   require 'persisty/persistence/document_definitions/document_collection_builder'
   require 'persisty/persistence/document_definitions/fields_reference'
   require 'persisty/persistence/document_definitions/nodes_reference'
+  require 'persisty/persistence/document_definitions/nodes'
   require 'persisty/persistence/document_definitions/base'
   require 'persisty/persistence/document_definitions/errors/no_parent_node_error'
 
