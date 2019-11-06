@@ -74,6 +74,71 @@ module Persisty
                   @subject.foo = Object.new
                 }.to raise_error(TypeError, "Object is a type mismatch from defined node 'foo'")
               end
+
+              context 'when embedding_parent has embedded child set' do
+                context 'when assigning a different parent from previous' do
+                  it 'clears child from previous parent, sets it in new parent and mark both as changed' do
+                    described_class.embedding_parent :stub_entity
+                    StubEntity.embed_child :test_class
+
+                    parent1 = StubEntity.new
+                    parent2 = StubEntity.new
+
+                    @subject.stub_entity = parent1
+                    expect(@subject.stub_entity).to eql parent1
+                    expect(parent1.test_class).to eql @subject
+
+                    allow(Persistence::UnitOfWork).to receive(:current).and_return uow
+                    expect(uow).to receive(:register_changed).once.with(parent1)
+                    expect(uow).to receive(:register_changed).once.with(parent2)
+
+                    @subject.stub_entity = parent2
+                    expect(@subject.stub_entity).to eql parent2
+                    expect(parent1.test_class).to be_nil
+                    expect(parent2.test_class).to eql @subject
+                  end
+                end
+
+                context 'when assigning nil to clear current_parent' do
+                  it 'clears child from previous parent and marks previous parent as changed' do
+                    described_class.embedding_parent :stub_entity
+                    StubEntity.embed_child :test_class
+
+                    parent = StubEntity.new
+                    @subject.stub_entity = parent
+                    expect(@subject.stub_entity).to eql parent
+                    expect(parent.test_class).to eql @subject
+
+                    allow(Persistence::UnitOfWork).to receive(:current).and_return uow
+                    expect(uow).to receive(:register_changed).once.with(parent)
+
+                    @subject.stub_entity = nil
+
+                    expect(@subject.stub_entity).to be_nil
+                    expect(parent.test_class).to be_nil
+                  end
+                end
+
+                context 'when assigning same parent as before' do
+                  it 'halts execution' do
+                    described_class.embedding_parent :stub_entity
+                    StubEntity.embed_child :test_class
+
+                    parent = StubEntity.new
+                    @subject.stub_entity = parent
+                    expect(@subject.stub_entity).to eql parent
+                    expect(parent.test_class).to eql @subject
+
+                    expect_any_instance_of(
+                      Persistence::UnitOfWork
+                    ).not_to receive(:register_changed).with(parent)
+
+                    @subject.stub_entity = parent
+                    expect(@subject.stub_entity).to eql parent
+                    expect(parent.test_class).to eql @subject
+                  end
+                end
+              end
             end
 
             describe '.embed_child name, class_name:, embedding_parent:' do

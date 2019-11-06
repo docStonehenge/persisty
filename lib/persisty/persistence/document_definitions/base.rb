@@ -277,7 +277,8 @@ module Persisty
 
           def embedding_parent(name, class_name: nil)
             node, klass = parse_node_identification(name, class_name)
-            node_definition = { node: node.to_sym, class: klass }
+            node = node.to_sym
+            node_definition = { node: node, class: klass }
             embedding_reference.register_parent(node_definition)
             klass.embedding_reference.register_parent(node_definition)
             attr_reader node
@@ -285,6 +286,24 @@ module Persisty
             instance_eval do
               define_method("#{node}=") do |parent_object|
                 NodeAssignments::CheckObjectType.(klass, node, parent_object)
+                return if (current_parent = instance_variable_get("@#{node}")) == parent_object
+
+                if current_parent
+                  current_parent.class.embedding_reference.child_node_for(
+                    node, current_parent.class, self.class
+                  ).each { |child| current_parent.public_send("#{child.name}=", nil) }
+
+                  Persistence::UnitOfWork.current.register_changed(current_parent)
+                end
+
+                if parent_object
+                  parent_object.class.embedding_reference.child_node_for(
+                    node, parent_object.class, self.class
+                  ).each { |child| parent_object.public_send("#{child.name}=", self) }
+
+                  Persistence::UnitOfWork.current.register_changed(parent_object)
+                end
+
                 instance_variable_set("@#{node}", parent_object)
               end
             end
