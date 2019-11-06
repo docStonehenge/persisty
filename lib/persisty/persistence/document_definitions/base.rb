@@ -13,15 +13,16 @@ module Persisty
           base.class_eval do
             extend(ClassMethods)
 
-            @fields_reference = FieldsReference.new
-            @nodes_reference  = NodesReference.new(self)
+            @fields_reference    = FieldsReference.new
+            @nodes_reference     = NodesReference.new(self)
+            @embedding_reference = NodesReference.new(self)
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
             alias_method(:_id=, :id=)
 
             class << self
-              attr_reader :nodes_reference
+              attr_reader :nodes_reference, :embedding_reference
 
               def fields
                 @fields_reference.fields
@@ -265,6 +266,20 @@ module Persisty
             define_parent_node_handling_methods(node, klass, foreign_key_field)
           end
 
+          def embedding_parent(name, class_name: nil)
+            node, klass = parse_node_identification(name, class_name)
+            node_definition = { node: node.to_sym, class: klass }
+            embedding_reference.register_parent(node_definition)
+            klass.embedding_reference.register_parent(node_definition)
+            attr_reader node
+
+            instance_eval do
+              define_method("#{node}=") do |parent_object|
+                NodeAssignments::CheckObjectType.(klass, node, parent_object)
+                instance_variable_set("@#{node}", parent_object)
+              end
+            end
+          end
           # Defines accessors methods for field <tt>name</tt>, considering <tt>type</tt> to use
           # coercion when setting value. Also, fills +fields_list+ with <tt>name</tt>
           # and +fields+ hash with <tt>name</tt> and <tt>type</tt>.

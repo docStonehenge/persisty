@@ -39,6 +39,42 @@ module Persisty
 
           context 'associations' do
             it_behaves_like 'entity associations methods'
+
+            describe '.embedding_parent name, class_name:' do
+              before do
+                @subject = described_class.new(id: BSON::ObjectId.new)
+              end
+
+              it 'maps parent reference to a NodesReference object and sets accessors' do
+                described_class.embedding_parent :stub_entity
+
+                expect(@subject).to respond_to(:stub_entity)
+                expect(@subject).to respond_to(:stub_entity=)
+
+                parent = StubEntity.new
+
+                @subject.stub_entity = parent
+
+                expect(@subject.stub_entity).to eql parent
+
+                expect(described_class.embedding_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+                expect(::StubEntity.embedding_reference).to have_key(node: :stub_entity, class: ::StubEntity)
+              end
+
+              it 'raises TypeError with custom message on writer when object is a type mismatch' do
+                described_class.embedding_parent :foo, class_name: StubEntity
+
+                expect(@subject).to respond_to(:foo)
+                expect(@subject).to respond_to(:foo=)
+
+                expect(described_class.embedding_reference).to have_key(node: :foo, class: ::StubEntity)
+                expect(::StubEntity.embedding_reference).to have_key(node: :foo, class: ::StubEntity)
+
+                expect {
+                  @subject.foo = Object.new
+                }.to raise_error(TypeError, "Object is a type mismatch from defined node 'foo'")
+              end
+            end
           end
 
           context 'attributes' do
