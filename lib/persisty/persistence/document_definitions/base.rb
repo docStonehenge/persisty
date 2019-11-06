@@ -266,6 +266,15 @@ module Persisty
             define_parent_node_handling_methods(node, klass, foreign_key_field)
           end
 
+          def embed_child(name, class_name: nil, embedding_parent: nil)
+            node, klass = parse_node_identification(name, class_name)
+            parent = (embedding_parent || self.name).to_s.underscore.to_sym
+            node_definition = { node: node.to_sym, class: klass, cascade: false, foreign_key: nil }
+            embedding_reference.register_child_node(parent, self, node_definition)
+            klass.embedding_reference.register_child_node(parent, self, node_definition)
+            attr_accessor node
+          end
+
           def embedding_parent(name, class_name: nil)
             node, klass = parse_node_identification(name, class_name)
             node_definition = { node: node.to_sym, class: klass }
@@ -341,7 +350,7 @@ module Persisty
           def determine_parent_name_by_foreign_key(foreign_key)
             return name.underscore.to_sym unless foreign_key
 
-            foreign_key.to_s.gsub(/_id$/, '').to_sym
+            foreign_key.from_foreign_key.to_sym
           end
 
           def define_writer_method_for(attribute, type) # :nodoc:

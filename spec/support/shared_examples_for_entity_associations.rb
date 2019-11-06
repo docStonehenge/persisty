@@ -30,8 +30,8 @@ shared_examples_for 'entity associations methods' do
             described_class.child_nodes :stub_entity_for_collections
           }.to raise_error(
                  Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-                 "Child node class must have a foreign_key field set for parent. "\
-                 "Use '.parent_node' method on child class to set correct parent_node relation."
+                 "Class must have a parent correctly set up. "\
+                 "Use parent definition method on child class to set correct parent_node relation."
                )
         end
 
@@ -42,8 +42,8 @@ shared_examples_for 'entity associations methods' do
             described_class.child_nodes :stub_entity_for_collections
           }.to raise_error(
                  Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-                 "Child node class must have a foreign_key field set for parent. "\
-                 "Use '.parent_node' method on child class to set correct parent_node relation."
+                 "Class must have a parent correctly set up. "\
+                 "Use parent definition method on child class to set correct parent_node relation."
                )
         end
 
@@ -105,8 +105,8 @@ shared_examples_for 'entity associations methods' do
             described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
           }.to raise_error(
                  Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-                 "Child node class must have a foreign_key field set for parent. "\
-                 "Use '.parent_node' method on child class to set correct parent_node relation."
+                 "Class must have a parent correctly set up. "\
+                 "Use parent definition method on child class to set correct parent_node relation."
                )
         end
 
@@ -117,8 +117,8 @@ shared_examples_for 'entity associations methods' do
             described_class.child_nodes :foos, class_name: 'StubEntityForCollection'
           }.to raise_error(
                  Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-                 "Child node class must have a foreign_key field set for parent. "\
-                 "Use '.parent_node' method on child class to set correct parent_node relation."
+                 "Class must have a parent correctly set up. "\
+                 "Use parent definition method on child class to set correct parent_node relation."
                )
         end
 
@@ -198,8 +198,8 @@ shared_examples_for 'entity associations methods' do
           described_class.child_nodes :foos, class_name: 'StubEntityForCollection', foreign_key: :foo_id
         }.to raise_error(
                Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-               "Child node class must have a foreign_key field set for parent. "\
-               "Use '.parent_node' method on child class to set correct parent_node relation."
+               "Class must have a parent correctly set up. "\
+               "Use parent definition method on child class to set correct parent_node relation."
              )
       end
 
@@ -210,8 +210,8 @@ shared_examples_for 'entity associations methods' do
           described_class.child_nodes :foos, class_name: 'StubEntityForCollection', foreign_key: :bar_id
         }.to raise_error(
                Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-               "Child node class must have a foreign_key field set for parent. "\
-               "Use '.parent_node' method on child class to set correct parent_node relation."
+               "Class must have a parent correctly set up. "\
+               "Use parent definition method on child class to set correct parent_node relation."
              )
       end
     end
@@ -246,8 +246,8 @@ shared_examples_for 'entity associations methods' do
             described_class.child_node :stub_entity
           }.to raise_error(
                  Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-                 "Child node class must have a foreign_key field set for parent. "\
-                 "Use '.parent_node' method on child class to set correct parent_node relation."
+                 "Class must have a parent correctly set up. "\
+                 "Use parent definition method on child class to set correct parent_node relation."
                )
         end
 
@@ -258,8 +258,8 @@ shared_examples_for 'entity associations methods' do
             described_class.child_node :stub_entity
           }.to raise_error(
                  Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-                 "Child node class must have a foreign_key field set for parent. "\
-                 "Use '.parent_node' method on child class to set correct parent_node relation."
+                 "Class must have a parent correctly set up. "\
+                 "Use parent definition method on child class to set correct parent_node relation."
                )
         end
 
@@ -410,8 +410,8 @@ shared_examples_for 'entity associations methods' do
             described_class.child_node :foo, class_name: ::StubEntity
           }.to raise_error(
                  Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-                 "Child node class must have a foreign_key field set for parent. "\
-                 "Use '.parent_node' method on child class to set correct parent_node relation."
+                 "Class must have a parent correctly set up. "\
+                 "Use parent definition method on child class to set correct parent_node relation."
                )
         end
 
@@ -571,8 +571,8 @@ shared_examples_for 'entity associations methods' do
           described_class.child_node :foo, class_name: 'StubEntity', foreign_key: :foo_id
         }.to raise_error(
                Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-               "Child node class must have a foreign_key field set for parent. "\
-               "Use '.parent_node' method on child class to set correct parent_node relation."
+               "Class must have a parent correctly set up. "\
+               "Use parent definition method on child class to set correct parent_node relation."
              )
       end
 
@@ -583,8 +583,8 @@ shared_examples_for 'entity associations methods' do
           described_class.child_node :foo, class_name: 'StubEntity', foreign_key: :bar_id
         }.to raise_error(
                Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
-               "Child node class must have a foreign_key field set for parent. "\
-               "Use '.parent_node' method on child class to set correct parent_node relation."
+               "Class must have a parent correctly set up. "\
+               "Use parent definition method on child class to set correct parent_node relation."
              )
       end
     end

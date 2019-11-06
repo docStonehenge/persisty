@@ -75,6 +75,66 @@ module Persisty
                 }.to raise_error(TypeError, "Object is a type mismatch from defined node 'foo'")
               end
             end
+
+            describe '.embed_child name, class_name:, embedding_parent:' do
+              before do
+                @subject = described_class.new(id: BSON::ObjectId.new)
+              end
+
+              it 'maps reference and defines accessors for child' do
+                StubEntity.embedding_parent :test_class
+                described_class.embed_child :stub_entity
+
+                expect(@subject).to respond_to(:stub_entity)
+                expect(@subject).to respond_to(:stub_entity=)
+
+                expect(
+                  described_class.embedding_reference.values
+                ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: false, foreign_key: nil }]))
+
+                expect(
+                  StubEntity.embedding_reference.values
+                ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: false, foreign_key: nil }]))
+              end
+
+              it 'maps correct embedding parent when its name is different from its class' do
+                StubEntity.embedding_parent :foo, class_name: TestClass
+                described_class.embed_child :stub_entity, embedding_parent: :foo
+
+                expect(@subject).to respond_to(:stub_entity)
+                expect(@subject).to respond_to(:stub_entity=)
+
+                expect(
+                  described_class.embedding_reference.values
+                ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: false, foreign_key: nil }]))
+
+                expect(
+                  StubEntity.embedding_reference.values
+                ).to include(a_hash_including(child_node: [{ node: :stub_entity, class: ::StubEntity, cascade: false, foreign_key: nil }]))
+              end
+
+              it "raises NoParentNodeError when embedded child class doesn't have embedding_parent" do
+                expect {
+                  described_class.embed_child :stub_entity
+                }.to raise_error(
+                       Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
+                       "Class must have a parent correctly set up. "\
+                       "Use parent definition method on child class to set correct parent_node relation."
+                     )
+              end
+
+              it "raises NoParentNodeError when embedded child class doesn't have parent expected" do
+                StubEntity.embedding_parent :foo, class_name: ::TestClass
+
+                expect {
+                  described_class.embed_child :stub_entity
+                }.to raise_error(
+                       Persisty::Persistence::DocumentDefinitions::Errors::NoParentNodeError,
+                       "Class must have a parent correctly set up. "\
+                       "Use parent definition method on child class to set correct parent_node relation."
+                     )
+              end
+            end
           end
 
           context 'attributes' do
