@@ -124,6 +124,10 @@ module Persisty
           self.class.nodes_reference
         end
 
+        def embeds
+          self.class.embedding_reference
+        end
+
         def parent_nodes_list
           nodes.parent_nodes_list
         end
@@ -251,7 +255,7 @@ module Persisty
 
           private
 
-          def register_defined_field(name, type)
+          def register_defined_field(name, type) # :nodoc:
             @fields_reference.register(name, type)
           end
 

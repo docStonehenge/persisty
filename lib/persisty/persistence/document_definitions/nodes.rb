@@ -89,7 +89,7 @@ module Persisty
               return if (current_parent = instance_variable_get("@#{node}")) == parent_object
 
               if current_parent
-                current_parent.class.embedding_reference.child_node_for(
+                current_parent.embeds.child_node_for(
                   node, current_parent.class, self.class
                 ).each { |child| current_parent.public_send("#{child.name}=", nil) }
 
@@ -97,7 +97,7 @@ module Persisty
               end
 
               if parent_object
-                parent_object.class.embedding_reference.child_node_for(
+                parent_object.embeds.child_node_for(
                   node, parent_object.class, self.class
                 ).each { |child| parent_object.public_send("#{child.name}=", self) }
 

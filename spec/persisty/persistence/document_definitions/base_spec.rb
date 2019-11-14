@@ -419,9 +419,15 @@ module Persisty
             described_class.parent_node :stub_entity
           end
 
-          describe '#nodes_reference' do
+          describe '#nodes' do
             it 'returns nodes_reference object set on class' do
               expect(subject.nodes).to equal(described_class.nodes_reference)
+            end
+          end
+
+          describe '#embeds' do
+            it 'returns embedding_reference object set on class' do
+              expect(subject.embeds).to equal(described_class.embedding_reference)
             end
           end
 
