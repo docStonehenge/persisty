@@ -94,6 +94,8 @@ module Persisty
       end
 
       def find_all_entities(**query_options)
+        return [] unless @parent.id
+
         Repositories::Registry[@document_class].find_all(
           filter: { foreign_key => @parent.id }, **query_options
         )
