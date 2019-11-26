@@ -448,6 +448,13 @@ module Persisty
             end
           end
 
+          describe '#embedding_parents_list' do
+            it 'returns list of embedding_parents set on object class' do
+              described_class.embedding_parent :stub_entity
+              expect(subject.embedding_parents_list).to include :stub_entity
+            end
+          end
+
           describe '#child_node_list' do
             it 'returns list of child_node set on object class' do
               StubEntity.child_node :test_entity, cascade: false
@@ -497,6 +504,17 @@ module Persisty
               expect(
                 subject.cascading_child_nodes_objects
               ).to contain_exactly [test_entity_collection, :stub_entity_id]
+            end
+          end
+
+          describe '#embedded_child_list' do
+            it 'returns list of embedded child types set on object class' do
+              described_class.embedding_parent :stub_entity
+              StubEntity.embed_child :test_entity
+
+              subject = StubEntity.new
+
+              expect(subject.embedded_child_list).to include :test_entity
             end
           end
 

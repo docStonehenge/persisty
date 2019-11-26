@@ -132,6 +132,10 @@ module Persisty
           nodes.parent_nodes_list
         end
 
+        def embedding_parents_list
+          embeds.parent_nodes_list
+        end
+
         def assign_foreign_key(foreign_key_name, id)
           public_send("#{foreign_key_name}=", id)
         end
@@ -144,6 +148,10 @@ module Persisty
               [public_send(node[0]), node[1]]
             end.reject { |node| node[0].nil? }
           end
+        end
+
+        def embedded_child_list
+          embeds.child_node_list
         end
 
         private
