@@ -19,7 +19,7 @@ shared_context 'StubEntity' do
     define_field :wage,       type: BigDecimal
 
     def self.repository
-      StubRepository
+      ParentEntitiesRepository
     end
   end
 

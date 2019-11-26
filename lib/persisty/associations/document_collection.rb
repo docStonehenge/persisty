@@ -42,7 +42,7 @@ module Persisty
         return if include? entity
 
         collection << entity
-        entity.public_send("#{foreign_key}=", @parent.id)
+        entity.assign_foreign_key(foreign_key, @parent.id)
         collection.sort! { |x, y| x <=> y }
       end
 
@@ -94,6 +94,8 @@ module Persisty
       end
 
       def find_all_entities(**query_options)
+        return [] unless @parent.id
+
         Repositories::Registry[@document_class].find_all(
           filter: { foreign_key => @parent.id }, **query_options
         )
@@ -101,7 +103,7 @@ module Persisty
 
       def foreign_key
         (
-          @foreign_key.present? ? @foreign_key : "#{@parent.class}".underscore + '_id'
+          @foreign_key.present? ? @foreign_key : @parent.class.name.to_foreign_key
         ).to_sym
       end
 

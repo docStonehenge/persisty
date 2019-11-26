@@ -12,6 +12,29 @@ module Persisty
         subject { described_class.new(parent, StubEntity, foreign_key) }
 
         describe '#include entity' do
+          context 'when parent id is nil' do
+            before do
+              allow(parent).to receive(:id).and_return nil
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+            end
+
+            context 'when entity has id' do
+              before do
+                entity.id = BSON::ObjectId.new
+              end
+
+              it 'returns false' do
+                expect(subject.include?(entity)).to be false
+              end
+            end
+
+            context "when entity doesn't have id" do
+              it 'returns false' do
+                expect(subject.include?(entity)).to be false
+              end
+            end
+          end
+
           context 'when foreign_key is nil' do
             before do
               expect(
@@ -120,6 +143,18 @@ module Persisty
         end
 
         describe '#reload' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'clears collection variable and loads an empty array as collection' do
+              expect(Persistence::UnitOfWork).not_to receive(:current)
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+
+              expect(subject.reload).to eql subject
+              expect(subject.instance_variable_get(:@collection)).to be_empty
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'clears collection variable, loads collection and returns subject' do
               expect(Persistence::UnitOfWork).not_to receive(:current)
@@ -163,6 +198,17 @@ module Persisty
               expect {
                 subject.remove(StubEntityForCollection.new)
               }.to raise_error(ArgumentError)
+            end
+          end
+
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it "doesn't perform operations" do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+              expect(Persistence::UnitOfWork).not_to receive(:current)
+
+              subject.remove other_entity
             end
           end
 
@@ -343,6 +389,53 @@ module Persisty
           end
 
           context 'when argument is of collection class' do
+            context 'when parent id is nil' do
+              before { allow(parent).to receive(:id).and_return nil }
+
+              context 'when entity has ID' do
+                before do
+                  other_entity.id = BSON::ObjectId.new
+                  entity.id = BSON::ObjectId.new
+                  allow(entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+                  subject << entity
+                end
+
+                context "when collection doesn't include entity yet" do
+                  it 'pushes entity to collection, sorting collection after' do
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+
+                    subject << other_entity
+
+                    expect(subject.instance_variable_get(:@collection)).to eql([other_entity, entity])
+                  end
+                end
+
+                context 'when collection already include entity' do
+                  before do
+                    allow(other_entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+                  end
+                  it 'skips pushing and sorting on collection' do
+                    subject << other_entity
+                    subject << other_entity
+
+                    expect(subject.instance_variable_get(:@collection).count).to eql 2
+                    expect(subject.instance_variable_get(:@collection)).to eql([other_entity, entity])
+                  end
+                end
+              end
+
+              context "when entity doesn't have ID" do
+                before do
+                  allow(other_entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+                end
+
+                it 'pushes entity to collection' do
+                  subject << other_entity
+                  expect(subject.instance_variable_get(:@collection)).to include(other_entity)
+                end
+              end
+            end
+
             context 'when foreign_key is nil' do
               before do
                 expect(
@@ -364,7 +457,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                     subject << other_entity
 
@@ -376,7 +469,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:string_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject << other_entity
 
@@ -392,7 +485,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                   subject << other_entity
                   expect(collection).to include(other_entity, entity)
@@ -423,7 +516,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                     subject << other_entity
 
@@ -435,7 +528,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:foo_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject << other_entity
 
@@ -451,7 +544,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                   subject << other_entity
                   expect(collection).to include(other_entity, entity)
@@ -475,6 +568,53 @@ module Persisty
           end
 
           context 'when argument is of collection class' do
+            context 'when parent id is nil' do
+              before { allow(parent).to receive(:id).and_return nil }
+
+              context 'when entity has ID' do
+                before do
+                  other_entity.id = BSON::ObjectId.new
+                  entity.id = BSON::ObjectId.new
+                  allow(entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+                  subject.push entity
+                end
+
+                context "when collection doesn't include entity yet" do
+                  it 'pushes entity to collection, sorting collection after' do
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+
+                    subject.push other_entity
+
+                    expect(subject.instance_variable_get(:@collection)).to eql([other_entity, entity])
+                  end
+                end
+
+                context 'when collection already include entity' do
+                  before do
+                    allow(other_entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+                  end
+                  it 'skips pushing and sorting on collection' do
+                    subject.push other_entity
+                    subject.push other_entity
+
+                    expect(subject.instance_variable_get(:@collection).count).to eql 2
+                    expect(subject.instance_variable_get(:@collection)).to eql([other_entity, entity])
+                  end
+                end
+              end
+
+              context "when entity doesn't have ID" do
+                before do
+                  allow(other_entity).to receive(:assign_foreign_key).once.with(:string_id, nil)
+                end
+
+                it 'pushes entity to collection' do
+                  subject.push other_entity
+                  expect(subject.instance_variable_get(:@collection)).to include(other_entity)
+                end
+              end
+            end
+
             context 'when foreign_key is nil' do
               before do
                 expect(
@@ -496,7 +636,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                     subject.push other_entity
 
@@ -508,7 +648,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:string_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject.push other_entity
 
@@ -524,7 +664,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                   subject.push other_entity
                   expect(collection).to include(other_entity, entity)
@@ -555,7 +695,7 @@ module Persisty
                   let(:collection) { [entity] }
 
                   it 'pushes entity to collection, sorting collection after' do
-                    expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                    expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                     subject.push other_entity
 
@@ -567,7 +707,7 @@ module Persisty
                   let(:collection) { [other_entity, entity] }
 
                   it 'skips pushing and sorting on collection' do
-                    expect(other_entity).not_to receive(:foo_id=).with(any_args)
+                    expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                     subject.push other_entity
 
@@ -583,7 +723,7 @@ module Persisty
                 let(:collection) { [entity] }
 
                 it 'pushes entity to collection' do
-                  expect(other_entity).to receive(:foo_id=).once.with(parent.id)
+                  expect(other_entity).to receive(:assign_foreign_key).once.with(:foo_id, parent.id)
 
                   subject.push other_entity
                   expect(collection).to include(other_entity, entity)
@@ -594,6 +734,16 @@ module Persisty
         end
 
         describe '#all' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns an empty array' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+
+              expect(subject.all).to eql([])
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to load collection and returns all objects found' do
               expect(
@@ -626,6 +776,16 @@ module Persisty
         end
 
         describe '#to_a' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns an empty array' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+
+              expect(subject.to_a).to eql([])
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to load collection and returns all objects found' do
               expect(
@@ -658,6 +818,16 @@ module Persisty
         end
 
         describe '#each' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it "doesn't call repository and doesn't yield" do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+
+              expect { |b| subject.each(&b) }.not_to yield_control
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to load collection and yields each object loaded' do
               expect(
@@ -690,6 +860,16 @@ module Persisty
         end
 
         describe '#[] index' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns nil on any position' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+              expect(subject[0]).to be_nil
+              expect(subject[1]).to be_nil
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to load collection and returns object on index' do
               expect(
@@ -722,6 +902,15 @@ module Persisty
         end
 
         describe '#first' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns nil' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+              expect(subject.first).to be_nil
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to find entities limiting at one and returns first object' do
               expect(
@@ -755,6 +944,15 @@ module Persisty
 
         describe '#last' do
           let(:last_entity) { double }
+
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns nil' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+              expect(subject.last).to be_nil
+            end
+          end
 
           context 'when foreign_key is nil' do
             it 'calls repository to return entity limiting at one and sorting ID descending' do
@@ -792,6 +990,15 @@ module Persisty
         describe '#_as_mongo_document' do
           let(:entity_document) { entity._as_mongo_document }
 
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns an empty array' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+              expect(subject._as_mongo_document).to eql([])
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to load collection and transforms each object to mongo_document' do
               expect(
@@ -824,6 +1031,15 @@ module Persisty
         end
 
         describe '#size' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns zero' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+              expect(subject.size).to be_zero
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to load collection and returns collection size' do
               expect(
@@ -856,6 +1072,15 @@ module Persisty
         end
 
         describe '#count' do
+          context 'when parent id is nil' do
+            before { allow(parent).to receive(:id).and_return nil }
+
+            it 'returns zero' do
+              expect(Repositories::Registry).not_to receive(:[]).with(StubEntity)
+              expect(subject.count).to be_zero
+            end
+          end
+
           context 'when foreign_key is nil' do
             it 'calls repository to load collection and returns collection count' do
               expect(
@@ -1067,7 +1292,7 @@ module Persisty
 
             context "when collection doesn't include entity yet" do
               it 'pushes entity to collection, sorting collection after' do
-                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                 subject << other_entity
 
@@ -1081,7 +1306,7 @@ module Persisty
               subject { described_class.new(parent, StubEntity, nil, collection) }
 
               it 'skips pushing and sorting on collection' do
-                expect(other_entity).not_to receive(:string_id=).with(any_args)
+                expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                 subject << other_entity
 
@@ -1093,7 +1318,7 @@ module Persisty
 
           context "when entity doesn't have ID" do
             before do
-              expect(other_entity).to receive(:string_id=).once.with(parent.id)
+              expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
             end
 
             it 'pushes entity to collection' do
@@ -1137,7 +1362,7 @@ module Persisty
 
             context "when collection doesn't include entity yet" do
               it 'pushes entity to collection, sorting collection after' do
-                expect(other_entity).to receive(:string_id=).once.with(parent.id)
+                expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
 
                 subject.push other_entity
 
@@ -1151,7 +1376,7 @@ module Persisty
               subject { described_class.new(parent, StubEntity, nil, collection) }
 
               it 'skips pushing and sorting on collection' do
-                expect(other_entity).not_to receive(:string_id=).with(any_args)
+                expect(other_entity).not_to receive(:assign_foreign_key).with(any_args)
 
                 subject.push other_entity
 
@@ -1163,7 +1388,7 @@ module Persisty
 
           context "when entity doesn't have ID" do
             before do
-              expect(other_entity).to receive(:string_id=).once.with(parent.id)
+              expect(other_entity).to receive(:assign_foreign_key).once.with(:string_id, parent.id)
             end
 
             it 'pushes entity to collection' do

@@ -11,17 +11,18 @@ module Persisty
         # aliasing to <tt>_id</tt>, according to MongoDB field with same name.
         def self.included(base)
           base.class_eval do
-            extend(ClassMethods)
+            extend(ClassMethods, DocumentDefinitions::Nodes)
 
-            @fields_reference = FieldsReference.new
-            @nodes_reference  = NodesReference.new(self)
+            @fields_reference    = FieldsReference.new
+            @nodes_reference     = NodesReference.new(self)
+            @embedding_reference = NodesReference.new(self)
 
             define_field :id, type: BSON::ObjectId
             alias_method(:_id, :id)
             alias_method(:_id=, :id=)
 
             class << self
-              attr_reader :nodes_reference
+              attr_reader :nodes_reference, :embedding_reference
 
               def fields
                 @fields_reference.fields
@@ -123,233 +124,34 @@ module Persisty
           self.class.nodes_reference
         end
 
-        def set_foreign_key_for(klass, foreign_key)
-          nodes.find_all_parent_nodes_for(klass).each do |parent_node|
-            public_send("#{parent_node.name}_id=", foreign_key)
-          end
+        def embeds
+          self.class.embedding_reference
         end
 
         def parent_nodes_list
           nodes.parent_nodes_list
         end
 
+        def embedding_parents_list
+          embeds.parent_nodes_list
+        end
+
+        def assign_foreign_key(foreign_key_name, id)
+          public_send("#{foreign_key_name}=", id)
+        end
+
         %i[child_node child_nodes].each do |type|
           define_method("#{type}_list") { nodes.public_send(__callee__) }
 
           define_method("cascading_#{type}_objects") do
-            nodes.public_send(
-              "cascading_#{type}_list"
-            ).map { |node| public_send(node) }.compact
+            nodes.public_send("cascading_#{type}_with_foreign_key").map do |node|
+              [public_send(node[0]), node[1]]
+            end.reject { |node| node[0].nil? }
           end
         end
 
-        module ClassMethods
-          # Returns the class name of the repository to handle persistence on entity.
-          # Should be overwritten by concrete DocumentDefinitions mixin created for entity.
-          # Raises an NotImplementedError.
-          def repository
-            raise NotImplementedError
-          end
-
-          def child_nodes(name, class_name: nil, cascade: false, foreign_key: nil)
-            node_parser = CollectionNodeParser.new
-            node_parser.parse_node_identification(name, class_name)
-            node, klass = node_parser.node_name, node_parser.node_class
-            register_child_node(node.to_sym, klass, cascade, foreign_key)
-            collection_class = DocumentCollectionFactory.collection_for(klass)
-
-            instance_eval do
-              define_method("#{node}") do
-                instance_variable_get("@#{node}") ||
-                  instance_variable_set(
-                    "@#{node}", collection_class.new(self, klass, foreign_key)
-                  )
-              end
-
-              define_method("#{node}=") do |collection|
-                instance_variable_set(
-                  "@#{node}",
-                  DocumentCollectionBuilder.new(
-                    self, public_send("#{node}"), klass
-                  ).build_with(collection, foreign_key)
-                )
-              end
-            end
-          end
-
-          def child_node(name, class_name: nil, cascade: false, foreign_key: nil)
-            node, klass = parse_node_identification(name, class_name)
-            register_child_node(node.to_sym, klass, cascade, foreign_key)
-
-            child_set_parent_node = parent_node_on(
-              klass, determine_parent_name_by_foreign_key(foreign_key)
-            )
-
-            instance_eval do
-              define_single_child_node_reader(node, klass, child_set_parent_node)
-              define_single_child_node_writer(node, klass, child_set_parent_node)
-            end
-          end
-
-          def parent_node(name, class_name: nil)
-            node, klass = parse_node_identification(name, class_name)
-            node_definition = { node: node.to_sym, class: klass }
-            nodes_reference.register_parent(node_definition)
-            klass.nodes_reference.register_parent(node_definition)
-            foreign_key_field = (node + '_id').to_sym
-            register_defined_field foreign_key_field, BSON::ObjectId
-            attr_reader foreign_key_field
-            define_parent_node_handling_methods(node, klass, foreign_key_field)
-          end
-
-          # Defines accessors methods for field <tt>name</tt>, considering <tt>type</tt> to use
-          # coercion when setting value. Also, fills +fields_list+ with <tt>name</tt>
-          # and +fields+ hash with <tt>name</tt> and <tt>type</tt>.
-          # For any attributes besides 'id', calls registration of entity object
-          # into current UnitOfWork.
-          # When attribute is 'id', writer method will check if entity is detached:
-          # if it is, then it's possible to change ID (considering that a detached entity
-          # is't present on current UnitOfWork); if it is not, it raises an ArgumentError.
-          #
-          # Examples
-          #
-          #   class Entity
-          #     ...
-          #
-          #     define_field :first_name, type: String
-          #   end
-          #
-          #   Entity.fields_list
-          #   #=> [:id, :first_name]
-          #
-          #   Entity.fields
-          #   #=> {:id=>{:type=>BSON::ObjectId}, :first_name=>{:type=>String}
-          #
-          #   entity = Entity.new
-          #   entity.first_name = "John Doe"
-          #   entity.first_name
-          #   #=> "John Doe"
-          def define_field(name, type:)
-            name = name.to_sym
-            register_defined_field name, type
-            attr_reader name
-            define_writer_method_for name, type
-          end
-
-          private
-
-          def parse_node_identification(node_name, class_name)
-            node_parser = NodeParser.new
-            node_parser.parse_node_identification(node_name, class_name)
-            [node_parser.node_name, node_parser.node_class]
-          end
-
-          def parent_node_on(klass, parent_node_name)
-            klass.nodes_reference.parent_node_for(parent_node_name, self).name
-          end
-
-          def register_defined_field(name, type)
-            @fields_reference.register(name, type)
-          end
-
-          def register_child_node(node, node_class, cascade, foreign_key)
-            type       = caller_locations.first.label.to_sym
-            parent     = determine_parent_name_by_foreign_key(foreign_key)
-            definition = { node: node, class: node_class, cascade: cascade, foreign_key: foreign_key }
-            nodes_reference.public_send("register_#{type}", parent, self, definition)
-            node_class.nodes_reference.public_send("register_#{type}", parent, self, definition)
-          end
-
-          def determine_parent_name_by_foreign_key(foreign_key)
-            return name.underscore.to_sym unless foreign_key
-
-            foreign_key.to_s.gsub(/_id$/, '').to_sym
-          end
-
-          def define_writer_method_for(attribute, type) # :nodoc:
-            instance_eval do
-              define_method("#{attribute}=") do |value|
-                new_value = Entities::Field.(type: type, value: value)
-                handle_registration_for_changes_on attribute, new_value do
-                  instance_variable_set(:"@#{attribute}", new_value)
-                end
-              end
-            end
-          end
-
-          def define_parent_node_handling_methods(parent_node_name, parent_node_class, foreign_key_field)
-            instance_eval do
-              define_method("#{foreign_key_field}=") do |id|
-                new_value = Entities::Field.(type: BSON::ObjectId, value: id)
-
-                return if instance_variable_get(:"@#{foreign_key_field}") == new_value
-
-                handle_registration_for_changes_on foreign_key_field, new_value do
-                  instance_variable_set(:"@#{foreign_key_field}", new_value)
-                end
-
-                handle_current_parent_change(parent_node_name, new_value)
-              end
-
-              define_parent_node_writer(
-                parent_node_name, parent_node_class, foreign_key_field
-              )
-
-              define_parent_node_reader(
-                parent_node_name, parent_node_class, foreign_key_field
-              )
-            end
-          end
-
-          def define_parent_node_writer(name, parent_node_class, foreign_key_field)
-            define_method("#{name}=") do |parent_object|
-              NodeAssignments::CheckObjectType.(parent_node_class, name, parent_object)
-              instance_variable_set("@#{name}", parent_object)
-              public_send("#{foreign_key_field}=", parent_object&.id)
-            end
-          end
-
-          def define_parent_node_reader(name, parent_node_class, foreign_key_field)
-            define_method("#{name}") do
-              if !instance_variable_get("@#{foreign_key_field}").nil? and instance_variable_get("@#{name}").nil?
-                parent = Repositories::Registry[parent_node_class].find(
-                  instance_variable_get("@#{foreign_key_field}")
-                )
-
-                instance_variable_set("@#{name}", parent)
-                instance_variable_set("@#{foreign_key_field}", parent.id)
-              end
-
-              instance_variable_get("@#{name}")
-            end
-          end
-
-          def define_single_child_node_reader(child_name, child_class, child_set_parent_node)
-            define_method("#{child_name}") do
-              if instance_variable_get("@#{child_name}").nil?
-                child_obj = Repositories::Registry[child_class].find_all(
-                  filter: { :"#{child_set_parent_node}_id" => id }
-                ).first
-
-                instance_variable_set("@#{child_name}", child_obj)
-              end
-
-              instance_variable_get("@#{child_name}")
-            end
-          end
-
-          def define_single_child_node_writer(child_name, child_class, child_set_parent_node)
-            define_method("#{child_name}=") do |child_obj|
-              NodeAssignments::CheckObjectType.(child_class, child_name, child_obj)
-              previous_child = instance_variable_get("@#{child_name}")
-
-              return if previous_child and previous_child.id == child_obj&.id
-
-              handle_previous_child_removal previous_child, child_set_parent_node
-              child_obj&.public_send("#{child_set_parent_node}=", self)
-              instance_variable_set("@#{child_name}", child_obj)
-            end
-          end
+        def embedded_child_list
+          embeds.child_node_list
         end
 
         private
@@ -400,7 +202,9 @@ module Persisty
 
         def initialize_nodes_based_on(attributes)
           attributes.select do |attr|
-            parent_nodes_list.include?(attr) or child_node_list.include?(attr)
+            [parent_nodes_list, child_node_list, child_nodes_list].any? do |list|
+              list.include?(attr)
+            end
           end.each { |node, value| public_send("#{node}=", value) }
         end
 
@@ -415,6 +219,66 @@ module Persisty
           yield
 
           Persistence::UnitOfWork.current.register_changed(self)
+        end
+
+        module ClassMethods
+          # Returns the class name of the repository to handle persistence on entity.
+          # Should be overwritten by concrete DocumentDefinitions mixin created for entity.
+          # Raises an NotImplementedError.
+          def repository
+            raise NotImplementedError
+          end
+
+          # Defines accessors methods for field <tt>name</tt>, considering <tt>type</tt> to use
+          # coercion when setting value. Also, fills +fields_list+ with <tt>name</tt>
+          # and +fields+ hash with <tt>name</tt> and <tt>type</tt>.
+          # For any attributes besides 'id', calls registration of entity object
+          # into current UnitOfWork.
+          # When attribute is 'id', writer method will check if entity is detached:
+          # if it is, then it's possible to change ID (considering that a detached entity
+          # is't present on current UnitOfWork); if it is not, it raises an ArgumentError.
+          #
+          # Examples
+          #
+          #   class Entity
+          #     ...
+          #
+          #     define_field :first_name, type: String
+          #   end
+          #
+          #   Entity.fields_list
+          #   #=> [:id, :first_name]
+          #
+          #   Entity.fields
+          #   #=> {:id=>{:type=>BSON::ObjectId}, :first_name=>{:type=>String}
+          #
+          #   entity = Entity.new
+          #   entity.first_name = "John Doe"
+          #   entity.first_name
+          #   #=> "John Doe"
+          def define_field(name, type:)
+            name = name.to_sym
+            register_defined_field name, type
+            attr_reader name
+            define_writer_method_for name, type
+          end
+
+          private
+
+          def register_defined_field(name, type) # :nodoc:
+            @fields_reference.register(name, type)
+          end
+
+          def define_writer_method_for(attribute, type) # :nodoc:
+            instance_eval do
+              define_method("#{attribute}=") do |value|
+                new_value = Entities::Field.(type: type, value: value)
+                handle_registration_for_changes_on attribute, new_value do
+                  instance_variable_set(:"@#{attribute}", new_value)
+                end
+              end
+            end
+          end
         end
       end
     end

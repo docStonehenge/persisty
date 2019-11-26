@@ -25,6 +25,9 @@ module Persisty
 
         def register_parent(node_definition)
           validate_parent_node_definition(node_definition)
+
+          return if nodes.any? { |node, _| node == node_definition and node_definition[:class] == referable }
+
           validate_parent_already_registered(node_definition)
           @nodes[node_definition] = { child_node: [], child_nodes: [] }
         end
@@ -53,13 +56,20 @@ module Persisty
           end
 
           define_method("#{child_node_type}_list") do
-            find_child_nodes(child_node_type).map { |node| node[:node] }
+            select_parent_nodes_for(referable).map do |_, value|
+              value[child_node_type]
+            end.flatten.map { |node| node[:node] }
           end
 
-          define_method("cascading_#{child_node_type}_list") do
-            find_child_nodes(
-              child_node_type
-            ).reject{ |node| !node[:cascade] }.map { |node| node[:node] }
+          define_method("cascading_#{child_node_type}_with_foreign_key") do
+            select_parent_nodes_for(referable).map do |parent_node, child_nodes|
+              child_nodes[child_node_type].reject { |node| !node[:cascade] }.map do |node|
+                [
+                  node[:node],
+                  (node[:foreign_key] || parent_node[:node].to_foreign_key)
+                ]
+              end
+            end.flatten(1)
           end
         end
 
@@ -69,12 +79,6 @@ module Persisty
 
         def parent_node_for(node_name, klass)
           Node.new(find_registered_parent_for(node_name, klass).first)
-        end
-
-        def find_all_parent_nodes_for(klass)
-          parent_nodes = select_parent_nodes_for(klass)
-          raise Errors::NoParentNodeError if parent_nodes.empty?
-          parent_nodes.map { |node, _| Node.new(node) }
         end
 
         private
@@ -120,14 +124,6 @@ module Persisty
 
         def select_parent_nodes_for(klass)
           nodes.select { |key, _| key[:class] == klass }
-        end
-
-        def find_child_nodes(node_type)
-          if (parents = select_parent_nodes_for(referable)).empty?
-            parents
-          else
-            parents.map { |_, value| value[node_type] }.flatten
-          end
         end
       end
     end

@@ -13,5 +13,19 @@ shared_context 'StubRepository' do
     end
   end
 
+  class ::ParentEntitiesRepository
+    include Persisty::Repositories::Base
+
+    private
+
+    def entity_klass
+      ::ParentEntity
+    end
+
+    def collection_name
+      :parent_entities
+    end
+  end
+
   let(:repo) { ::StubRepository.new }
 end

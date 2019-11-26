@@ -5,8 +5,8 @@ module Persisty
         class NoParentNodeError < ArgumentError
           def initialize
             super(
-              "Child node class must have a foreign_key field set for parent. "\
-              "Use '.parent_node' method on child class to set correct parent_node relation."
+              "Class must have a parent correctly set up. "\
+              "Use parent definition method on child class to set correct parent_node relation."
             )
           end
         end

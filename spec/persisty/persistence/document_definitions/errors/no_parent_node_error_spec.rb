@@ -6,8 +6,8 @@ module Persisty
           it '#message' do
             expect(
               subject.message
-            ).to eql "Child node class must have a foreign_key field set for parent. "\
-                     "Use '.parent_node' method on child class to set correct parent_node relation."
+            ).to eql "Class must have a parent correctly set up. "\
+                     "Use parent definition method on child class to set correct parent_node relation."
           end
         end
       end

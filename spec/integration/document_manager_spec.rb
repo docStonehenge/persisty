@@ -225,6 +225,51 @@ describe 'DocumentManager integration tests', db_integration: true do
         dm.commit
       end
     end
+
+    context 'handling multiple cascading children' do
+      include_context 'parent node and childs environment'
+
+      it 'persists all objects cascading through all cascading children' do
+        ChildTwo.parent_node :parent
+        Parent.child_nodes :seconds, class_name: ChildTwo, cascade: true, foreign_key: :parent_id
+        StubEntity.parent_node :child_two
+        ChildTwo.child_nodes :stub_entities, cascade: true
+
+        ParentEntity.parent_node :child_one
+        ChildOne.child_node :other, class_name: ParentEntity, cascade: true
+
+        child_twos = [ChildTwo.new, ChildTwo.new]
+
+        stub_entity = StubEntity.new
+        child_twos[0].stub_entities = [stub_entity]
+
+        other = ParentEntity.new
+        child_one = ChildOne.new(other: other)
+
+        parent.first_child = child_one
+        parent.seconds << child_twos[0]
+        parent.seconds << child_twos[1]
+
+        dm.persist parent
+
+        expect(parent.id).not_to be_nil
+        expect(stub_entity.id).not_to be_nil
+        expect(child_twos[0].id).not_to be_nil
+        expect(child_twos[1].id).not_to be_nil
+        expect(other.id).not_to be_nil
+        expect(child_one.id).not_to be_nil
+
+        expect(stub_entity.child_two_id).to eql child_twos[0].id
+        expect(child_twos[0].parent_id).to eql parent.id
+        expect(child_twos[1].parent_id).to eql parent.id
+        expect(child_twos[0].dad_id).to be_nil
+        expect(child_twos[1].dad_id).to be_nil
+        expect(child_one.parent_id).to eql parent.id
+        expect(other.child_one_id).to eql child_one.id
+
+        dm.commit
+      end
+    end
   end
 
   context 'removing entities' do
