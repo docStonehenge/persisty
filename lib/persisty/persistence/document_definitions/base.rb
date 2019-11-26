@@ -194,7 +194,9 @@ module Persisty
 
         def initialize_nodes_based_on(attributes)
           attributes.select do |attr|
-            parent_nodes_list.include?(attr) or child_node_list.include?(attr)
+            [parent_nodes_list, child_node_list, child_nodes_list].any? do |list|
+              list.include?(attr)
+            end
           end.each { |node, value| public_send("#{node}=", value) }
         end
 

@@ -592,6 +592,19 @@ module Persisty
                 expect(subject.test_entity).to eql child
               end
 
+              it 'initializes with a collection of child nodes' do
+                StubEntity.child_nodes :test_entities
+
+                child1 = described_class.new(id: BSON::ObjectId.new)
+                child2 = described_class.new(id: BSON::ObjectId.new)
+                children = [child1, child2]
+
+                subject = StubEntity.new(test_entities: children)
+
+                expect(subject.test_entities).to include(child1)
+                expect(subject.test_entities).to include(child2)
+              end
+
               it 'raises error on initialization when parent node object is of wrong type' do
                 expect {
                   described_class.new(
